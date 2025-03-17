@@ -4,8 +4,9 @@ import random
 import time
 
 # Constants
-DEFAULT_WIDTH, DEFAULT_HEIGHT = 400, 800
-COLS, ROWS = 10, 20  # Play matrix dimensions
+DEFAULT_WIDTH, DEFAULT_HEIGHT = 360, 700
+COLS, ROWS = 10, 24  # Play matrix dimensions
+VISIBLE_ROWS = 20
 GRID_WIDTH, GRID_HEIGHT = 300, 600
 LOCK_DELAY = 250  # Lock delay in milliseconds
 DAS = 150  # Delayed Auto-Shift in milliseconds
@@ -115,17 +116,17 @@ def refill_bag():
     piece_bag = random.sample(list(TETRIMINO_SHAPES.keys()), len(TETRIMINO_SHAPES))  # Shuffle all 7 pieces
 
 def spawn_piece():
-    """Spawn a new piece from the 7-bag randomization system."""
+    """Spawn a new piece from the 7-bag system, 2 rows higher than before."""
     global piece_bag
 
-    if not piece_bag:  # If the bag is empty, refill it
+    if not piece_bag:
         refill_bag()
 
-    piece_type = piece_bag.pop(0)  # Take the first piece from the bag
+    piece_type = piece_bag.pop(0)
     piece = TETRIMINO_SHAPES[piece_type][0]
 
-    # Adjust positions to align center to column 5
-    adjusted_piece = [(r, c + 4) if piece_type != "I" else (r, c + 3) for r, c in piece]
+    # Spawn the piece 2 rows higher
+    adjusted_piece = [(r + 2, c + 4) if piece_type != "I" else (r + 2, c + 3) for r, c in piece]
 
     return piece_type, adjusted_piece
 
@@ -258,47 +259,60 @@ def get_ghost_piece():
 
     return ghost_piece
 
-def draw_grid(width, height):
-    """Draws the Tetris grid centered within the window, including the ghost piece."""
+def draw_grid():
+    """Draws only the visible part of the Tetris grid, hiding the top 4 rows."""
+    width, height = screen.get_size()
+
+    # Calculate square size dynamically
+    square_size = min(width // COLS, height // VISIBLE_ROWS)
+    grid_width = square_size * COLS
+    grid_height = square_size * VISIBLE_ROWS
+
+    # Center the grid in the window
+    margin_x = (width - grid_width) // 2
+    margin_y = (height - grid_height) // 2
+
     screen.fill(OUTSIDE_BACKGROUND)
-    square_size = GRID_WIDTH // COLS
-    margin_x = (width - GRID_WIDTH) // 2
-    margin_y = (height - GRID_HEIGHT) // 2
 
     # Draw grid background
-    pygame.draw.rect(screen, GRID_BACKGROUND, (margin_x, margin_y, GRID_WIDTH, GRID_HEIGHT))
+    pygame.draw.rect(screen, GRID_BACKGROUND, (margin_x, margin_y, grid_width, grid_height))
 
     # Get ghost piece position
     ghost_piece = get_ghost_piece()
     ghost_color = TETRIMINO_COLORS[current_piece_type]
 
-    # Draw grid cells (locked pieces and empty spaces)
-    for row in range(ROWS):
+    # Draw only the visible portion of the grid (bottom 20 rows)
+    for row in range(4, ROWS):  # Start from row 4 (hide first 4 rows)
         for col in range(COLS):
             cell_value = grid[row, col]
             color = TETRIMINO_COLORS[cell_value] if cell_value in TETRIMINO_COLORS else GRID_BACKGROUND
-            cell_rect = pygame.Rect(margin_x + col * square_size, margin_y + row * square_size, square_size, square_size)
 
-            # Draw filled cells with black outline, empty cells with grid lines
+            # Adjust row index for rendering (shifted up by 4)
+            adjusted_row = row - 4
+            cell_rect = pygame.Rect(margin_x + col * square_size, margin_y + adjusted_row * square_size, square_size, square_size)
+
             pygame.draw.rect(screen, color, cell_rect)
-            if cell_value != "X":  
-                pygame.draw.rect(screen, PIECE_OUTLINE, cell_rect, 1)  # Black outline for filled cells
+            if cell_value != "X":
+                pygame.draw.rect(screen, PIECE_OUTLINE, cell_rect, 1)
             else:
-                pygame.draw.rect(screen, GRID_LINES, cell_rect, 1)  # Grid lines for empty cells
+                pygame.draw.rect(screen, GRID_LINES, cell_rect, 1)
 
     # Draw ghost piece (hollow outline)
     for r, c in ghost_piece:
-        if 0 <= r < ROWS and 0 <= c < COLS:
-            ghost_rect = pygame.Rect(margin_x + c * square_size, margin_y + r * square_size, square_size, square_size)
-            pygame.draw.rect(screen, ghost_color, ghost_rect, 2)  # Hollow outline for ghost
+        if 4 <= r < ROWS:  # Only draw ghost if in visible area
+            adjusted_row = r - 4
+            ghost_rect = pygame.Rect(margin_x + c * square_size, margin_y + adjusted_row * square_size, square_size, square_size)
+            pygame.draw.rect(screen, ghost_color, ghost_rect, 2)
 
-    # Draw current piece (active falling piece)
+    # Draw current falling piece
     for r, c in current_piece:
-        if 0 <= r < ROWS and 0 <= c < COLS:
-            color = TETRIMINO_COLORS[current_piece_type]
-            cell_rect = pygame.Rect(margin_x + c * square_size, margin_y + r * square_size, square_size, square_size)
-            pygame.draw.rect(screen, color, cell_rect)
-            pygame.draw.rect(screen, PIECE_OUTLINE, cell_rect, 1)  # Outline for active pieces
+        if 4 <= r < ROWS:  # Only draw piece if in visible area
+            adjusted_row = r - 4
+            cell_rect = pygame.Rect(margin_x + c * square_size, margin_y + adjusted_row * square_size, square_size, square_size)
+            pygame.draw.rect(screen, TETRIMINO_COLORS[current_piece_type], cell_rect)
+            pygame.draw.rect(screen, PIECE_OUTLINE, cell_rect, 1)
+
+    pygame.display.flip()
 
 def main():
     global move_left_pressed, move_right_pressed, soft_drop_pressed
@@ -334,7 +348,7 @@ def main():
                 elif event.key == pygame.K_s:
                     soft_drop_pressed = False
 
-        draw_grid(DEFAULT_WIDTH, DEFAULT_HEIGHT)
+        draw_grid()
         pygame.display.flip()
 
     pygame.quit()
