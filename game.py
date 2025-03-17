@@ -87,15 +87,29 @@ def soft_drop_or_lock():
         if not move_piece(0, 1):  # Check again after delay
             lock_piece()
 
+# Global piece bag (initialize empty)
+piece_bag = []
+
+def refill_bag():
+    """Refills and shuffles the 7-bag when empty."""
+    global piece_bag
+    piece_bag = random.sample(list(TETRIMINO_SHAPES.keys()), len(TETRIMINO_SHAPES))  # Shuffle all 7 pieces
+
 def spawn_piece():
-    """Spawn a new random piece at the top of the grid, centered at column 5."""
-    piece_type = random.choice(list(TETRIMINO_SHAPES.keys()))
+    """Spawn a new piece from the 7-bag randomization system."""
+    global piece_bag
+
+    if not piece_bag:  # If the bag is empty, refill it
+        refill_bag()
+
+    piece_type = piece_bag.pop(0)  # Take the first piece from the bag
     piece = TETRIMINO_SHAPES[piece_type][0]
-    
+
     # Adjust positions to align center to column 5
     adjusted_piece = [(r, c + 4) if piece_type != "I" else (r, c + 3) for r, c in piece]
 
     return piece_type, adjusted_piece
+
 
 # Initialize game state
 current_piece_type, current_piece = spawn_piece()
