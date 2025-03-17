@@ -150,26 +150,30 @@ def handle_movement():
     global das_timer, arr_timer, gravity_lock_timer, soft_drop_lock_timer
 
     current_time = pygame.time.get_ticks()
+    direction = 0  # Default no movement
 
-    if move_left_pressed or move_right_pressed:
+    if move_left_pressed:
+        direction = -1  # Move left
+    elif move_right_pressed:
+        direction = 1  # Move right
+
+    if direction != 0:
         if das_timer == 0:
             das_timer = current_time  # Start DAS timer
-            direction = -1 if move_left_pressed else 1
-            if move_piece(direction, 0):  # Move instantly on first press
-                gravity_lock_timer = 0
-                soft_drop_lock_timer = 0
+            move_piece(direction, 0)  # Move once on initial press
+            gravity_lock_timer = 0
+            soft_drop_lock_timer = 0
 
         elif current_time - das_timer >= DAS:
             # DAS threshold reached, start ARR movement
             if arr_timer == 0 or current_time - arr_timer >= ARR:
-                direction = -1 if move_left_pressed else 1
-                if move_piece(direction, 0):  # Move at ARR interval
-                    gravity_lock_timer = 0
-                    soft_drop_lock_timer = 0
+                move_piece(direction, 0)  # Move at ARR interval
+                gravity_lock_timer = 0
+                soft_drop_lock_timer = 0
                 arr_timer = current_time  # Reset ARR timer
     else:
-        das_timer = 0  # Reset when key is released
-        arr_timer = 0
+        das_timer = 0  # Reset DAS when no key is pressed
+        arr_timer = 0  # Reset ARR
 
 def handle_soft_drop():
     """Handles DAS and ARR for soft dropping, with proper locking and lockout override."""
@@ -244,9 +248,18 @@ def handle_gravity():
         lock_piece()
         lockout_override_timer = 0  # Reset override timer after locking
 
+def get_ghost_piece():
+    """Returns the lowest valid position for the current piece (ghost piece)."""
+    ghost_piece = list(current_piece)  # Copy the current piece
+
+    # Move the ghost piece down until it collides
+    while is_valid_position([(r + 1, c) for r, c in ghost_piece]):
+        ghost_piece = [(r + 1, c) for r, c in ghost_piece]
+
+    return ghost_piece
 
 def draw_grid(width, height):
-    """Draws the Tetris grid centered within the window."""
+    """Draws the Tetris grid centered within the window, including the ghost piece."""
     screen.fill(OUTSIDE_BACKGROUND)
     square_size = GRID_WIDTH // COLS
     margin_x = (width - GRID_WIDTH) // 2
@@ -255,19 +268,29 @@ def draw_grid(width, height):
     # Draw grid background
     pygame.draw.rect(screen, GRID_BACKGROUND, (margin_x, margin_y, GRID_WIDTH, GRID_HEIGHT))
 
+    # Get ghost piece position
+    ghost_piece = get_ghost_piece()
+    ghost_color = TETRIMINO_COLORS[current_piece_type]
+
     # Draw grid cells (locked pieces and empty spaces)
     for row in range(ROWS):
         for col in range(COLS):
             cell_value = grid[row, col]
             color = TETRIMINO_COLORS[cell_value] if cell_value in TETRIMINO_COLORS else GRID_BACKGROUND
             cell_rect = pygame.Rect(margin_x + col * square_size, margin_y + row * square_size, square_size, square_size)
-            
+
             # Draw filled cells with black outline, empty cells with grid lines
             pygame.draw.rect(screen, color, cell_rect)
             if cell_value != "X":  
                 pygame.draw.rect(screen, PIECE_OUTLINE, cell_rect, 1)  # Black outline for filled cells
             else:
                 pygame.draw.rect(screen, GRID_LINES, cell_rect, 1)  # Grid lines for empty cells
+
+    # Draw ghost piece (hollow outline)
+    for r, c in ghost_piece:
+        if 0 <= r < ROWS and 0 <= c < COLS:
+            ghost_rect = pygame.Rect(margin_x + c * square_size, margin_y + r * square_size, square_size, square_size)
+            pygame.draw.rect(screen, ghost_color, ghost_rect, 2)  # Hollow outline for ghost
 
     # Draw current piece (active falling piece)
     for r, c in current_piece:
@@ -276,7 +299,6 @@ def draw_grid(width, height):
             cell_rect = pygame.Rect(margin_x + c * square_size, margin_y + r * square_size, square_size, square_size)
             pygame.draw.rect(screen, color, cell_rect)
             pygame.draw.rect(screen, PIECE_OUTLINE, cell_rect, 1)  # Outline for active pieces
-
 
 def main():
     global move_left_pressed, move_right_pressed, soft_drop_pressed
@@ -297,15 +319,13 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_a:
                     move_left_pressed = True
-                    move_piece(-1, 0)  # Initial move instantly
                 elif event.key == pygame.K_d:
                     move_right_pressed = True
-                    move_piece(1, 0)  # Initial move instantly
                 elif event.key == pygame.K_s:
                     soft_drop_pressed = True
-                    move_piece(0, 1)  # Initial move instantly
                 elif event.key == pygame.K_w:
-                    hard_drop()  # Hard drop immediately places and locks piece
+                    hard_drop()  # Hard drop immediately
+
             elif event.type == pygame.KEYUP:
                 if event.key == pygame.K_a:
                     move_left_pressed = False
@@ -318,7 +338,6 @@ def main():
         pygame.display.flip()
 
     pygame.quit()
-
 
 if __name__ == "__main__":
     main()
