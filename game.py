@@ -5,9 +5,24 @@ import time
 
 # Constants
 DEFAULT_WIDTH, DEFAULT_HEIGHT = 400, 800
-COLS, ROWS = 10, 20  # Tetris grid dimensions
+COLS, ROWS = 10, 20  # Play matrix dimensions
 GRID_WIDTH, GRID_HEIGHT = 300, 600
-LOCK_DELAY = 0.5  # Lock delay in seconds
+LOCK_DELAY = 250  # Lock delay in milliseconds
+DAS = 150  # Delayed Auto-Shift in milliseconds
+ARR = 75  # Auto Repeat Rate in milliseconds
+SOFT_DROP_DAS = 75  # Delay before repeated soft drops start (in milliseconds)
+SOFT_DROP_ARR = 35  # Time between additional soft drops when held (in milliseconds)
+
+
+# Track movement state
+move_left_pressed = False
+move_right_pressed = False
+soft_drop_pressed = False
+das_timer = 0
+arr_timer = 0
+soft_drop_das_timer = 0
+soft_drop_arr_timer = 0
+
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
@@ -120,6 +135,57 @@ pygame.init()
 screen = pygame.display.set_mode((DEFAULT_WIDTH, DEFAULT_HEIGHT), pygame.RESIZABLE)
 pygame.display.set_caption("Tetris")
 
+def handle_movement():
+    """Handles DAS and ARR for left/right movement."""
+    global das_timer, arr_timer
+
+    current_time = pygame.time.get_ticks()
+
+    if move_left_pressed or move_right_pressed:
+        if das_timer == 0:
+            das_timer = current_time  # Start DAS timer
+
+        elif current_time - das_timer >= DAS:
+            # DAS threshold reached, start ARR movement
+            if arr_timer == 0 or current_time - arr_timer >= ARR:
+                direction = -1 if move_left_pressed else 1
+                move_piece(direction, 0)
+                arr_timer = current_time  # Reset ARR timer
+    else:
+        das_timer = 0  # Reset when key is released
+        arr_timer = 0
+
+soft_drop_lock_timer = 0  # Track time before locking after soft drop
+
+def handle_soft_drop():
+    """Handles DAS and ARR for soft dropping, with proper locking."""
+    global soft_drop_das_timer, soft_drop_arr_timer, soft_drop_lock_timer
+
+    current_time = pygame.time.get_ticks()
+
+    if soft_drop_pressed:
+        if soft_drop_das_timer == 0:
+            soft_drop_das_timer = current_time  # Start DAS timer
+            if not move_piece(0, 1):  # If move fails, start lock timer
+                if soft_drop_lock_timer == 0:
+                    soft_drop_lock_timer = current_time
+
+        elif current_time - soft_drop_das_timer >= SOFT_DROP_DAS:
+            if soft_drop_arr_timer == 0 or current_time - soft_drop_arr_timer >= SOFT_DROP_ARR:
+                if not move_piece(0, 1):  # If move fails, start lock timer
+                    if soft_drop_lock_timer == 0:
+                        soft_drop_lock_timer = current_time
+                soft_drop_arr_timer = current_time  # Reset ARR timer
+    else:
+        soft_drop_das_timer = 0  # Reset DAS
+        soft_drop_arr_timer = 0  # Reset ARR
+        soft_drop_lock_timer = 0  # Reset lock timer when released
+
+    # **Handle Locking**: If the piece has been unable to move down for `LOCK_DELAY`, lock it.
+    if soft_drop_lock_timer > 0 and current_time - soft_drop_lock_timer >= LOCK_DELAY:
+        lock_piece()
+        soft_drop_lock_timer = 0  # Reset lock timer after locking
+
 def draw_grid(width, height):
     """Draws the Tetris grid centered within the window."""
     screen.fill(OUTSIDE_BACKGROUND)
@@ -154,35 +220,45 @@ def draw_grid(width, height):
 
 
 def main():
-    global current_piece, current_piece_type, game_over
+    global move_left_pressed, move_right_pressed, soft_drop_pressed
     running = True
-    width, height = DEFAULT_WIDTH, DEFAULT_HEIGHT
 
     while running:
         if game_over:
             print("Game Over!")
-            running = False  # Stop the game loop
+            running = False
+
+        handle_movement()  # Handle left/right DAS & ARR
+        handle_soft_drop()  # Handle soft drop DAS & ARR
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.VIDEORESIZE:
-                width, height = event.w, event.h
-                screen = pygame.display.set_mode((width, height), pygame.RESIZABLE)
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_a:  # Move left
-                    move_piece(dx=-1, dy=0)
-                elif event.key == pygame.K_d:  # Move right
-                    move_piece(dx=1, dy=0)
-                elif event.key == pygame.K_s:  # Soft drop
-                    soft_drop_or_lock()
-                elif event.key == pygame.K_w:  # Hard drop
-                    hard_drop()
+                if event.key == pygame.K_a:
+                    move_left_pressed = True
+                    move_piece(-1, 0)  # Initial move instantly
+                elif event.key == pygame.K_d:
+                    move_right_pressed = True
+                    move_piece(1, 0)  # Initial move instantly
+                elif event.key == pygame.K_s:
+                    soft_drop_pressed = True
+                    move_piece(0, 1)  # Initial move instantly
+                elif event.key == pygame.K_w:
+                    hard_drop()  # Hard drop immediately places and locks piece
+            elif event.type == pygame.KEYUP:
+                if event.key == pygame.K_a:
+                    move_left_pressed = False
+                elif event.key == pygame.K_d:
+                    move_right_pressed = False
+                elif event.key == pygame.K_s:
+                    soft_drop_pressed = False
 
-        draw_grid(width, height)
+        draw_grid(DEFAULT_WIDTH, DEFAULT_HEIGHT)
         pygame.display.flip()
 
     pygame.quit()
+
 
 if __name__ == "__main__":
     main()
