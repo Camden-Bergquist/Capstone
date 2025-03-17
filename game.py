@@ -12,7 +12,8 @@ DAS = 150  # Delayed Auto-Shift in milliseconds
 ARR = 75  # Auto Repeat Rate in milliseconds
 SOFT_DROP_DAS = 75  # Delay before repeated soft drops start (in milliseconds)
 SOFT_DROP_ARR = 35  # Time between additional soft drops when held (in milliseconds)
-
+GRAVITY = 500  # Default fall speed (1000ms = 1 second per row)
+LOCKOUT_OVERRIDE = 2000  # Time in milliseconds before forced lockout
 
 # Track movement state
 move_left_pressed = False
@@ -22,7 +23,10 @@ das_timer = 0
 arr_timer = 0
 soft_drop_das_timer = 0
 soft_drop_arr_timer = 0
-
+soft_drop_lock_timer = 0  # Track time before locking after soft drop
+gravity_timer = 0  # Tracks last gravity update
+gravity_lock_timer = 0  # Tracks when the piece should lock due to gravity
+lockout_override_timer = 0  # Track time for lockout override
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
@@ -125,7 +129,6 @@ def spawn_piece():
 
     return piece_type, adjusted_piece
 
-
 # Initialize game state
 current_piece_type, current_piece = spawn_piece()
 game_over = False
@@ -135,56 +138,112 @@ pygame.init()
 screen = pygame.display.set_mode((DEFAULT_WIDTH, DEFAULT_HEIGHT), pygame.RESIZABLE)
 pygame.display.set_caption("Tetris")
 
+def is_grounded():
+    """Returns True if the piece is directly above a solid block or the floor."""
+    for r, c in current_piece:
+        if r + 1 >= ROWS or (r + 1 >= 0 and grid[r + 1, c] != "X"):  # Check if a block is below
+            return True
+    return False
+
 def handle_movement():
-    """Handles DAS and ARR for left/right movement."""
-    global das_timer, arr_timer
+    """Handles DAS and ARR for left/right movement and resets lock delay when moving."""
+    global das_timer, arr_timer, gravity_lock_timer, soft_drop_lock_timer
 
     current_time = pygame.time.get_ticks()
 
     if move_left_pressed or move_right_pressed:
         if das_timer == 0:
             das_timer = current_time  # Start DAS timer
+            direction = -1 if move_left_pressed else 1
+            if move_piece(direction, 0):  # Move instantly on first press
+                gravity_lock_timer = 0
+                soft_drop_lock_timer = 0
 
         elif current_time - das_timer >= DAS:
             # DAS threshold reached, start ARR movement
             if arr_timer == 0 or current_time - arr_timer >= ARR:
                 direction = -1 if move_left_pressed else 1
-                move_piece(direction, 0)
+                if move_piece(direction, 0):  # Move at ARR interval
+                    gravity_lock_timer = 0
+                    soft_drop_lock_timer = 0
                 arr_timer = current_time  # Reset ARR timer
     else:
         das_timer = 0  # Reset when key is released
         arr_timer = 0
 
-soft_drop_lock_timer = 0  # Track time before locking after soft drop
-
 def handle_soft_drop():
-    """Handles DAS and ARR for soft dropping, with proper locking."""
-    global soft_drop_das_timer, soft_drop_arr_timer, soft_drop_lock_timer
+    """Handles DAS and ARR for soft dropping, with proper locking and lockout override."""
+    global soft_drop_das_timer, soft_drop_arr_timer, soft_drop_lock_timer, lockout_override_timer
 
     current_time = pygame.time.get_ticks()
 
     if soft_drop_pressed:
         if soft_drop_das_timer == 0:
             soft_drop_das_timer = current_time  # Start DAS timer
-            if not move_piece(0, 1):  # If move fails, start lock timer
+            if not move_piece(0, 1) and is_grounded():
                 if soft_drop_lock_timer == 0:
                     soft_drop_lock_timer = current_time
+                
+                if lockout_override_timer == 0:  # Start override timer if not started
+                    lockout_override_timer = current_time
 
         elif current_time - soft_drop_das_timer >= SOFT_DROP_DAS:
             if soft_drop_arr_timer == 0 or current_time - soft_drop_arr_timer >= SOFT_DROP_ARR:
-                if not move_piece(0, 1):  # If move fails, start lock timer
+                if not move_piece(0, 1) and is_grounded():
                     if soft_drop_lock_timer == 0:
                         soft_drop_lock_timer = current_time
+                    
+                    if lockout_override_timer == 0:  # Start override timer if not started
+                        lockout_override_timer = current_time
                 soft_drop_arr_timer = current_time  # Reset ARR timer
     else:
         soft_drop_das_timer = 0  # Reset DAS
         soft_drop_arr_timer = 0  # Reset ARR
         soft_drop_lock_timer = 0  # Reset lock timer when released
 
-    # **Handle Locking**: If the piece has been unable to move down for `LOCK_DELAY`, lock it.
-    if soft_drop_lock_timer > 0 and current_time - soft_drop_lock_timer >= LOCK_DELAY:
+    # **Handle Locking**: If the piece is grounded and hasn't moved for LOCK_DELAY, lock it.
+    if soft_drop_lock_timer > 0 and current_time - soft_drop_lock_timer >= LOCK_DELAY and is_grounded():
         lock_piece()
         soft_drop_lock_timer = 0  # Reset lock timer after locking
+        lockout_override_timer = 0  # Reset override timer after locking
+
+    # **Force lock if lockout override timer exceeds LOCKOUT_OVERRIDE**
+    if lockout_override_timer > 0 and current_time - lockout_override_timer >= LOCKOUT_OVERRIDE and is_grounded():
+        lock_piece()
+        lockout_override_timer = 0  # Reset override timer after locking
+
+def handle_gravity():
+    """Handles automatic piece falling at GRAVITY intervals and triggers lockout if needed."""
+    global gravity_timer, gravity_lock_timer, lockout_override_timer
+
+    current_time = pygame.time.get_ticks()
+
+    # Apply gravity
+    if current_time - gravity_timer >= GRAVITY:
+        if not move_piece(0, 1):
+            if is_grounded():  # Only start lock timer if grounded
+                if gravity_lock_timer == 0:
+                    gravity_lock_timer = current_time
+                
+                if lockout_override_timer == 0:  # Start override timer if not started
+                    lockout_override_timer = current_time
+        else:
+            gravity_lock_timer = 0  # Reset lock timer if the piece moves down
+            lockout_override_timer = 0  # Reset override timer on downward movement
+
+        gravity_timer = current_time  # Reset gravity timer
+
+    # **Lock the piece if grounded and unable to move for LOCK_DELAY**
+    if gravity_lock_timer > 0 and current_time - gravity_lock_timer >= LOCK_DELAY and is_grounded():
+        lock_piece()
+        gravity_lock_timer = 0  # Reset lock timer after locking
+        lockout_override_timer = 0  # Reset override timer after locking
+
+    # **Lock piece if override timer exceeds LOCKOUT_OVERRIDE**
+    if lockout_override_timer > 0 and current_time - lockout_override_timer >= LOCKOUT_OVERRIDE and is_grounded():
+        lock_piece()
+        lockout_override_timer = 0  # Reset override timer after locking
+
 
 def draw_grid(width, height):
     """Draws the Tetris grid centered within the window."""
@@ -230,6 +289,7 @@ def main():
 
         handle_movement()  # Handle left/right DAS & ARR
         handle_soft_drop()  # Handle soft drop DAS & ARR
+        handle_gravity() # Handle gravity
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
