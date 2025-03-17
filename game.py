@@ -25,25 +25,29 @@ TETRIMINO_COLORS = {
     "I": (0, 208, 255)  # Cyan
 }
 
-# Shape definitions (4x4 grids for easy rotation)
+# Shape definitions with proper SRS spawn orientations
 TETRIMINO_SHAPES = {
-    "Z": [[(0, 0), (0, 1), (1, 1), (1, 2)]],
-    "S": [[(1, 0), (1, 1), (0, 1), (0, 2)]],
-    "L": [[(0, 0), (1, 0), (2, 0), (2, 1)]],
-    "J": [[(0, 1), (1, 1), (2, 1), (2, 0)]],
-    "O": [[(0, 0), (0, 1), (1, 0), (1, 1)]],
-    "T": [[(0, 0), (0, 1), (0, 2), (1, 1)]],
-    "I": [[(0, 0), (1, 0), (2, 0), (3, 0)]]
+    "Z": [[(0, -1), (0, 0), (1, 0), (1, 1)]],  # Spawns in row 0
+    "S": [[(1, -1), (1, 0), (0, 0), (0, 1)]],  # Spawns in row 0
+    "L": [[(1, -1), (1, 0), (1, 1), (0, 1)]],  # Spawns lying on back
+    "J": [[(1, -1), (1, 0), (1, 1), (0, -1)]],  # Spawns lying on back
+    "O": [[(0, 0), (0, 1), (1, 0), (1, 1)]],  # Spawns centered
+    "T": [[(1, -1), (1, 0), (1, 1), (0, 0)]],  # FIXED: Now correctly points UP
+    "I": [[(0, 0), (0, 1), (0, 2), (0, 3)]]  # Corrected horizontal I-piece spawn
 }
 
 # Initialize grid
 grid = np.full((ROWS, COLS), "X")  # Start with all cells empty
 
 def spawn_piece():
-    """Spawn a new random piece at the top of the grid."""
+    """Spawn a new random piece at the top of the grid, aligned to column 5 (index 4) using SRS."""
     piece_type = random.choice(list(TETRIMINO_SHAPES.keys()))
-    piece = TETRIMINO_SHAPES[piece_type][0]  # Start with default orientation
-    return piece_type, [(r, c + COLS // 2 - 1) for r, c in piece]  # Adjust for center spawn
+    piece = TETRIMINO_SHAPES[piece_type][0]  # Default rotation
+
+    # Adjust positions to align center to column 5
+    adjusted_piece = [(r, c + 4) if piece_type != "I" else (r, c + 3) for r, c in piece]  # I-piece fix
+
+    return piece_type, adjusted_piece
 
 current_piece_type, current_piece = spawn_piece()
 
