@@ -30,7 +30,12 @@ gravity_lock_timer = 0  # Tracks when the piece should lock due to gravity
 lockout_override_timer = 0  # Track time for lockout override
 held_piece = None  # Stores the currently held piece type
 hold_used = False  # Lockout to prevent indefinite swapping
-next_piece_type = None  # Tracks the upcoming piece
+primary_bag = []    # The active bag for spawning pieces
+secondary_bag = []  # The backup bag (future pieces)
+next_queue = []     # Holds the next five pieces to display
+bag_piece_count = 0  # Tracks how many pieces have spawned
+
+
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
@@ -95,7 +100,6 @@ SRS_WALL_KICKS_I = {
     (0, "L"): [(0, 0), (1, 0), (-2, 0), (1, -2), (-2, 1)],
 }
 
-
 # Initialize grid
 grid = np.full((ROWS, COLS), "X")
 
@@ -111,22 +115,28 @@ def is_valid_position(piece):
 def lock_piece():
     """Locks the current piece into the grid and spawns a new piece."""
     global current_piece, current_piece_type, current_rotation, game_over, hold_used
+
+    # **Lock the piece into the grid**
     for r, c in current_piece:
         if r >= 0:
-            grid[r, c] = current_piece_type  # Lock piece into the grid
-    
-    # Check for and clear full lines
+            grid[r, c] = current_piece_type  
+
+    # **Check for and clear full lines**
     clear_lines()
 
-    # Spawn a new piece
+    # **Spawn a new piece from the updated queue**
     current_piece_type, current_piece, current_rotation = spawn_piece()
-    
-    # Reset hold usage (holding is allowed again)
+
+    # **Reset hold usage (holding is allowed again)**
     hold_used = False
 
-    # Check if the new piece is already colliding (Game Over)
+    # **Check if the new piece is already colliding (Game Over)**
     if not is_valid_position(current_piece):
         game_over = True  # Game over if the new piece cannot be placed
+
+    # **Ensure the display updates immediately**
+    draw_grid()
+    pygame.display.flip()
 
 def move_piece(dx, dy):
     """Attempt to move the current piece by (dx, dy)."""
@@ -151,29 +161,59 @@ def soft_drop_or_lock():
         if not move_piece(0, 1):  # Check again after delay
             lock_piece()
 
-# Global piece bag (initialize empty)
-piece_bag = []
 
 def refill_bag():
-    """Refills and shuffles the 7-bag when empty."""
-    global piece_bag
-    piece_bag = random.sample(list(TETRIMINO_SHAPES.keys()), len(TETRIMINO_SHAPES))  # Shuffle all 7 pieces
+    """Refills the piece bags, maintaining two bags at all times."""
+    global primary_bag, secondary_bag
+
+    # If both bags are empty, fill both
+    if not primary_bag and not secondary_bag:
+        primary_bag = random.sample(list(TETRIMINO_SHAPES.keys()), len(TETRIMINO_SHAPES))
+        secondary_bag = random.sample(list(TETRIMINO_SHAPES.keys()), len(TETRIMINO_SHAPES))
+
+    # If only the primary bag is empty, shift secondary to primary and make a new secondary
+    elif not primary_bag:
+        primary_bag = secondary_bag
+        secondary_bag = random.sample(list(TETRIMINO_SHAPES.keys()), len(TETRIMINO_SHAPES))
 
 def spawn_piece():
-    """Spawn a new piece from the 7-bag randomization system."""
-    global piece_bag, next_piece_type
+    """Spawns a new piece from the next queue, ensuring the queue remains filled."""
+    global primary_bag, secondary_bag, next_queue, bag_piece_count  # Track piece count
 
-    if not piece_bag:  # If the bag is empty, refill it
-        refill_bag()
+    # Ensure next_queue has at least 5 pieces
+    while len(next_queue) < 5:
+        if not primary_bag:
+            refill_bag()
+        next_queue.append(primary_bag.pop(0))
 
-    piece_type = piece_bag.pop(0)  # Take the first piece from the bag
-    next_piece_type = piece_bag[0] if piece_bag else None
-    piece = TETRIMINO_SHAPES[piece_type][0]
+    # **Take the first piece from the queue**
+    current_piece_type = next_queue.pop(0)
 
-    # Spawn the piece 2 rows higher
-    adjusted_piece = [(r + 2, c + 4) if piece_type != "I" else (r + 2, c + 3) for r, c in piece]
+    # **Increment piece count when a new piece spawns**
+    if bag_piece_count < 7:
+        bag_piece_count += 1
+    else:
+        bag_piece_count = 0
 
-    return piece_type, adjusted_piece, 0 # (0 = spawn state)
+    # **Ensure the queue remains filled**
+    while len(next_queue) < 5:
+        if not primary_bag:
+            refill_bag()
+        next_queue.append(primary_bag.pop(0))
+
+    # Get the shape of the new piece
+    piece = TETRIMINO_SHAPES[current_piece_type][0]
+
+    # **Spawn the piece at the correct position**
+    adjusted_piece = [(r + 2, c + 4) if current_piece_type != "I" else (r + 2, c + 3) for r, c in piece]
+
+    return current_piece_type, adjusted_piece, 0  # (0 = spawn state)
+
+
+
+
+
+
 
 def hold_piece():
     """Handles the hold mechanic. Can only be used once per active piece."""
@@ -557,21 +597,21 @@ def draw_hold_box():
     width, height = screen.get_size()
 
     # Calculate square size dynamically
-    square_size = min(width // COLS, height // (VISIBLE_ROWS + 1))  # +1 to account for extra margin
+    square_size = min(width // COLS, height // (VISIBLE_ROWS + 1))  # Adjust size dynamically
     grid_width = square_size * COLS
-    grid_height = square_size * (VISIBLE_ROWS + 1)  # Expanded to include margins
+    grid_height = square_size * (VISIBLE_ROWS + 1)  # Include margins
 
-    # Centering grid in the window
+    # Centering the grid in the window
     margin_x = (width - grid_width) // 2
     margin_y = (height - grid_height) // 2
 
-    # Corrected hold box position: Shift it **exactly half a cell down** to align with the margin
-    hold_box_width = square_size * 5  # 5-wide instead of 4-wide
-    hold_box_height = square_size * 4  # 4-tall
-    hold_box_x = margin_x - hold_box_width - 10  # Left of the grid with a small gap
-    hold_box_y = margin_y + square_size * 0.5  # **Shift down by half a cell**
+    # Hold box position
+    hold_box_width = square_size * 5  
+    hold_box_height = square_size * 4  
+    hold_box_x = margin_x - hold_box_width - 10  
+    hold_box_y = margin_y + square_size * 0.5  
 
-    # Draw hold box background
+    # Draw hold box
     pygame.draw.rect(screen, GRID_BACKGROUND, (hold_box_x, hold_box_y, hold_box_width, hold_box_height))
     pygame.draw.rect(screen, GRID_LINES, (hold_box_x, hold_box_y, hold_box_width, hold_box_height), 2)
 
@@ -580,7 +620,6 @@ def draw_hold_box():
         piece_shape = TETRIMINO_SHAPES[held_piece][0]
         piece_color = TETRIMINO_COLORS[held_piece]
 
-        # Find min/max positions of the piece
         min_x = min(c for r, c in piece_shape)
         min_y = min(r for r, c in piece_shape)
         max_x = max(c for r, c in piece_shape)
@@ -602,14 +641,21 @@ def draw_hold_box():
             pygame.draw.rect(screen, piece_color, piece_rect)
             pygame.draw.rect(screen, PIECE_OUTLINE, piece_rect, 1)
 
-    # Draw "HOLD" label below the hold box
+    # **Ensure the "HOLD" text is the same distance from the box as "NEXT" text**
     font = pygame.font.Font(None, 40)
     text = font.render("HOLD", True, (255, 255, 255))
-    text_rect = text.get_rect(center=(hold_box_x + hold_box_width // 2, hold_box_y + hold_box_height + 20))
+
+    # **Align text exactly one grid square below the hold box (same as NEXT)**
+    text_y = hold_box_y + hold_box_height + square_size  # Matches `draw_next_box()`
+    text_rect = text.get_rect(center=(hold_box_x + hold_box_width // 2, text_y))
     screen.blit(text, text_rect)
 
 def draw_next_box():
-    """Draws the next piece box aligned with the top half-cell margin, mirrored on the right side."""
+    """Draws the next piece box aligned with the top half-cell margin, mirrored on the right side,
+       and positions the 'NEXT' text correctly between the two next queues with a 2-grid-square margin.
+       Adds a horizontal separator if `bag_piece_count == 7` or `bag_piece_count == 0`."""
+    global bag_piece_count
+
     width, height = screen.get_size()
 
     # Calculate square size dynamically
@@ -631,10 +677,11 @@ def draw_next_box():
     pygame.draw.rect(screen, GRID_BACKGROUND, (next_box_x, next_box_y, next_box_width, next_box_height))
     pygame.draw.rect(screen, GRID_LINES, (next_box_x, next_box_y, next_box_width, next_box_height), 2)
 
-    # Draw the next piece
-    if next_piece_type:
-        piece_shape = TETRIMINO_SHAPES[next_piece_type][0]
-        piece_color = TETRIMINO_COLORS[next_piece_type]
+    # **Draw the next piece**
+    if next_queue:
+        piece_type = next_queue[0]  # Extract only the piece type
+        piece_shape = TETRIMINO_SHAPES[piece_type][0]
+        piece_color = TETRIMINO_COLORS[piece_type]
 
         # Find min/max positions of the piece
         min_x = min(c for r, c in piece_shape)
@@ -658,12 +705,130 @@ def draw_next_box():
             pygame.draw.rect(screen, piece_color, piece_rect)
             pygame.draw.rect(screen, PIECE_OUTLINE, piece_rect, 1)
 
-    # Draw "NEXT" label below the next box
+    # **Draw horizontal separator line if `bag_piece_count == 7` or `bag_piece_count == 0`**
+    if bag_piece_count == 7:
+        separator_y = next_box_y + next_box_height - (square_size * 0.35)  # 0.35 cells above bottom edge
+        pygame.draw.line(screen, GRID_LINES, 
+                         (next_box_x + 2, separator_y), 
+                         (next_box_x + next_box_width - 2, separator_y), 2)
+
+    elif bag_piece_count == 0:
+        separator_y = next_box_y + (square_size * 0.35)  # 0.35 cells below top edge
+        pygame.draw.line(screen, GRID_LINES, 
+                         (next_box_x + 2, separator_y), 
+                         (next_box_x + next_box_width - 2, separator_y), 2)
+
+    # **Ensure "NEXT" text is positioned exactly in the middle of the 2-square gap**
     font = pygame.font.Font(None, 40)
     text = font.render("NEXT", True, (255, 255, 255))
-    text_rect = text.get_rect(center=(next_box_x + next_box_width // 2, next_box_y + next_box_height + 20))
+    
+    # **Position the text exactly one grid square below the next box**
+    text_y = next_box_y + next_box_height + square_size  # One square below next box
+    text_rect = text.get_rect(center=(next_box_x + next_box_width // 2, text_y))
     screen.blit(text, text_rect)
 
+    # **Return required values for extended queue alignment**
+    return next_box_y, next_box_height
+
+def draw_extended_next_queue(next_box_y, next_box_height):
+    """Draws a box below the next piece box displaying the next four upcoming pieces,
+       ensuring it starts two grid squares below the next box and ends half a square from the bottom.
+       Draws a horizontal separator line based on `bag_piece_count` conditions."""
+    global bag_piece_count
+
+    width, height = screen.get_size()
+
+    # Calculate square size dynamically
+    square_size = min(width // COLS, height // (VISIBLE_ROWS + 1))
+    grid_width = square_size * COLS
+    grid_height = square_size * (VISIBLE_ROWS + 1)
+
+    # Centering the grid
+    margin_x = (width - grid_width) // 2
+
+    # **Position the extended queue exactly 2 grid squares below the next box**
+    extended_box_x = margin_x + grid_width + 10  # Right side of grid
+    extended_box_y = next_box_y + next_box_height + (square_size * 2)
+
+    # **Adjust the height to align the bottom with half a square from the bottom of the screen**
+    margin_y = (height - GRID_HEIGHT) // 2  # Center the grid vertically
+    extended_box_height = GRID_HEIGHT - (next_box_y - margin_y + next_box_height) - (square_size * 1.1)
+
+
+    # Extended queue width remains the same as the next box
+    extended_box_width = square_size * 5  
+
+    # Draw extended queue background
+    pygame.draw.rect(screen, GRID_BACKGROUND, (extended_box_x, extended_box_y, extended_box_width, extended_box_height))
+    pygame.draw.rect(screen, GRID_LINES, (extended_box_x, extended_box_y, extended_box_width, extended_box_height), 2)
+
+    # **Determine vertical spacing for pieces**
+    num_pieces = min(4, len(next_queue) - 1)  # Ensure up to 4 pieces are displayed
+    if num_pieces > 0:
+        piece_spacing = extended_box_height / num_pieces  # Distribute pieces evenly
+
+    # **Determine where to place the separator line**
+    separator_index = None
+    extra_separator_position = None  # Used for bag_piece_count == 6 or 2
+
+    if bag_piece_count == 6:
+        extra_separator_position = "top"  # Line near the top edge
+    elif bag_piece_count == 5:
+        separator_index = 0  # Line between first and second piece
+    elif bag_piece_count == 4:
+        separator_index = 1  # Line between second and third piece
+    elif bag_piece_count == 3:
+        separator_index = 2  # Line between third and fourth piece
+    elif bag_piece_count == 2:
+        extra_separator_position = "bottom"  # Line near the bottom edge
+
+    # **Draw next four pieces in order**
+    for i, piece_type in enumerate(next_queue[1:num_pieces+1]):  # Skip first element (it's in next box)
+        piece_shape = TETRIMINO_SHAPES[piece_type][0]
+        piece_color = TETRIMINO_COLORS[piece_type]
+
+        # Find min/max positions of the piece
+        min_x = min(c for r, c in piece_shape)
+        min_y = min(r for r, c in piece_shape)
+        max_x = max(c for r, c in piece_shape)
+        max_y = max(r for r, c in piece_shape)
+
+        piece_width = (max_x - min_x + 1) * square_size
+        piece_height = (max_y - min_y + 1) * square_size
+
+        # Positioning: Evenly distribute pieces vertically
+        offset_x = extended_box_x + (extended_box_width - piece_width) // 2
+        offset_y = extended_box_y + (i * piece_spacing) + (piece_spacing - piece_height) / 2  # Center each piece
+
+        # **Draw the piece**
+        for r, c in piece_shape:
+            piece_rect = pygame.Rect(
+                offset_x + (c - min_x) * square_size,
+                offset_y + (r - min_y) * square_size,
+                square_size, square_size
+            )
+            pygame.draw.rect(screen, piece_color, piece_rect)
+            pygame.draw.rect(screen, PIECE_OUTLINE, piece_rect, 1)
+
+        # **Draw separator line in the correct position**
+        if separator_index is not None and i == separator_index:
+            separator_y = offset_y + piece_height + (piece_spacing - piece_height) / 2  # Center between pieces
+            pygame.draw.line(screen, GRID_LINES, 
+                             (extended_box_x + 2, separator_y), 
+                             (extended_box_x + extended_box_width - 2, separator_y), 2)
+
+    # **Extra separators for bag_piece_count == 6 or 2**
+    if extra_separator_position == "top":
+        separator_y = extended_box_y + (square_size * 0.35)  # 0.35 grid cells from the top
+        pygame.draw.line(screen, GRID_LINES, 
+                         (extended_box_x + 2, separator_y), 
+                         (extended_box_x + extended_box_width - 2, separator_y), 2)
+
+    elif extra_separator_position == "bottom":
+        separator_y = extended_box_y + extended_box_height - (square_size * 0.35)  # 0.35 grid cells from the bottom
+        pygame.draw.line(screen, GRID_LINES, 
+                         (extended_box_x + 2, separator_y), 
+                         (extended_box_x + extended_box_width - 2, separator_y), 2)
 
 def draw_grid():
     """Draws only the visible part of the Tetris grid, with a half-cell-high margin at the top and bottom,
@@ -744,6 +909,8 @@ def draw_grid():
 
     draw_hold_box()
     draw_next_box()
+    next_box_y, next_box_height = draw_next_box()
+    draw_extended_next_queue(next_box_y, next_box_height)
     pygame.display.flip()
 
 def main():
