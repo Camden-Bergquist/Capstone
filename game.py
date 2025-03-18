@@ -30,6 +30,7 @@ gravity_lock_timer = 0  # Tracks when the piece should lock due to gravity
 lockout_override_timer = 0  # Track time for lockout override
 held_piece = None  # Stores the currently held piece type
 hold_used = False  # Lockout to prevent indefinite swapping
+next_piece_type = None  # Tracks the upcoming piece
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
@@ -160,12 +161,13 @@ def refill_bag():
 
 def spawn_piece():
     """Spawn a new piece from the 7-bag randomization system."""
-    global piece_bag
+    global piece_bag, next_piece_type
 
     if not piece_bag:  # If the bag is empty, refill it
         refill_bag()
 
     piece_type = piece_bag.pop(0)  # Take the first piece from the bag
+    next_piece_type = piece_bag[0] if piece_bag else None
     piece = TETRIMINO_SHAPES[piece_type][0]
 
     # Spawn the piece 2 rows higher
@@ -606,6 +608,63 @@ def draw_hold_box():
     text_rect = text.get_rect(center=(hold_box_x + hold_box_width // 2, hold_box_y + hold_box_height + 20))
     screen.blit(text, text_rect)
 
+def draw_next_box():
+    """Draws the next piece box aligned with the top half-cell margin, mirrored on the right side."""
+    width, height = screen.get_size()
+
+    # Calculate square size dynamically
+    square_size = min(width // COLS, height // (VISIBLE_ROWS + 1))  # +1 for margin
+    grid_width = square_size * COLS
+    grid_height = square_size * (VISIBLE_ROWS + 1)  # Include margin
+
+    # Centering grid in the window
+    margin_x = (width - grid_width) // 2
+    margin_y = (height - grid_height) // 2
+
+    # Next box position: mirrored to the right
+    next_box_width = square_size * 5  # Same width as hold box
+    next_box_height = square_size * 4  # Same height as hold box
+    next_box_x = margin_x + grid_width + 10  # Right side of grid
+    next_box_y = margin_y + square_size * 0.5  # Align with top half-cell margin
+
+    # Draw next box background
+    pygame.draw.rect(screen, GRID_BACKGROUND, (next_box_x, next_box_y, next_box_width, next_box_height))
+    pygame.draw.rect(screen, GRID_LINES, (next_box_x, next_box_y, next_box_width, next_box_height), 2)
+
+    # Draw the next piece
+    if next_piece_type:
+        piece_shape = TETRIMINO_SHAPES[next_piece_type][0]
+        piece_color = TETRIMINO_COLORS[next_piece_type]
+
+        # Find min/max positions of the piece
+        min_x = min(c for r, c in piece_shape)
+        min_y = min(r for r, c in piece_shape)
+        max_x = max(c for r, c in piece_shape)
+        max_y = max(r for r, c in piece_shape)
+
+        piece_width = (max_x - min_x + 1) * square_size
+        piece_height = (max_y - min_y + 1) * square_size
+
+        # Center the piece in the next box
+        offset_x = next_box_x + (next_box_width - piece_width) // 2
+        offset_y = next_box_y + (next_box_height - piece_height) // 2
+
+        for r, c in piece_shape:
+            piece_rect = pygame.Rect(
+                offset_x + (c - min_x) * square_size,
+                offset_y + (r - min_y) * square_size,
+                square_size, square_size
+            )
+            pygame.draw.rect(screen, piece_color, piece_rect)
+            pygame.draw.rect(screen, PIECE_OUTLINE, piece_rect, 1)
+
+    # Draw "NEXT" label below the next box
+    font = pygame.font.Font(None, 40)
+    text = font.render("NEXT", True, (255, 255, 255))
+    text_rect = text.get_rect(center=(next_box_x + next_box_width // 2, next_box_y + next_box_height + 20))
+    screen.blit(text, text_rect)
+
+
 def draw_grid():
     """Draws only the visible part of the Tetris grid, with a half-cell-high margin at the top and bottom,
        and colors those margins with OUTSIDE_BACKGROUND."""
@@ -684,6 +743,7 @@ def draw_grid():
             pygame.draw.rect(screen, PIECE_OUTLINE, cell_rect, 1)
 
     draw_hold_box()
+    draw_next_box()
     pygame.display.flip()
 
 def main():
