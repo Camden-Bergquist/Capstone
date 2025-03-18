@@ -28,6 +28,8 @@ soft_drop_lock_timer = 0  # Track time before locking after soft drop
 gravity_timer = 0  # Tracks last gravity update
 gravity_lock_timer = 0  # Tracks when the piece should lock due to gravity
 lockout_override_timer = 0  # Track time for lockout override
+held_piece = None  # Stores the currently held piece type
+hold_used = False  # Lockout to prevent indefinite swapping
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
@@ -107,7 +109,7 @@ def is_valid_position(piece):
 
 def lock_piece():
     """Locks the current piece into the grid and spawns a new piece."""
-    global current_piece, current_piece_type, current_rotation, game_over
+    global current_piece, current_piece_type, current_rotation, game_over, hold_used
     for r, c in current_piece:
         if r >= 0:
             grid[r, c] = current_piece_type  # Lock piece into the grid
@@ -118,6 +120,9 @@ def lock_piece():
     # Spawn a new piece
     current_piece_type, current_piece, current_rotation = spawn_piece()
     
+    # Reset hold usage (holding is allowed again)
+    hold_used = False
+
     # Check if the new piece is already colliding (Game Over)
     if not is_valid_position(current_piece):
         game_over = True  # Game over if the new piece cannot be placed
@@ -167,6 +172,27 @@ def spawn_piece():
     adjusted_piece = [(r + 2, c + 4) if piece_type != "I" else (r + 2, c + 3) for r, c in piece]
 
     return piece_type, adjusted_piece, 0 # (0 = spawn state)
+
+def hold_piece():
+    """Handles the hold mechanic. Can only be used once per active piece."""
+    global held_piece, current_piece_type, current_piece, current_rotation, hold_used
+
+    if hold_used:
+        return  # Can't hold again until a new piece locks
+
+    if held_piece is None:
+        # If no piece is held, store the current piece and spawn a new one
+        held_piece = current_piece_type
+        current_piece_type, current_piece, current_rotation = spawn_piece()
+    else:
+        # If a piece is already held, swap it with the current piece
+        held_piece, current_piece_type = current_piece_type, held_piece
+        current_piece, current_rotation = TETRIMINO_SHAPES[current_piece_type][0], 0
+
+        # Adjust position for spawning
+        current_piece = [(r + 2, c + 4) if current_piece_type != "I" else (r + 2, c + 3) for r, c in current_piece]
+
+    hold_used = True  # Mark hold as used until next piece locks
 
 # Initialize game state
 current_piece_type, current_piece, current_rotation = spawn_piece()
@@ -608,6 +634,8 @@ def main():
                     rotate_piece("L")
                 elif event.key == pygame.K_RIGHT:  # Clockwise rotation
                     rotate_piece("R")
+                elif event.key == pygame.K_LSHIFT:
+                    hold_piece()  # Trigger hold mechanic
 
             elif event.type == pygame.KEYUP:
                 if event.key == pygame.K_a:
