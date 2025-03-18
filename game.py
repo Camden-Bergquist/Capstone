@@ -112,6 +112,9 @@ def lock_piece():
         if r >= 0:
             grid[r, c] = current_piece_type  # Lock piece into the grid
     
+    # Check for and clear full lines
+    clear_lines()
+
     # Spawn a new piece
     current_piece_type, current_piece, current_rotation = spawn_piece()
     
@@ -180,6 +183,27 @@ def is_grounded():
         if r + 1 >= ROWS or (r + 1 >= 0 and grid[r + 1, c] != "X"):  # Check if a block is below
             return True
     return False
+
+def clear_lines():
+    """Checks for full lines, clears them, and shifts the above lines down."""
+    global grid
+    
+    # Identify full rows
+    full_rows = [r for r in range(ROWS) if all(grid[r, c] != "X" for c in range(COLS))]
+
+    if full_rows:
+        # Remove full rows and insert new empty rows at the top
+        new_grid = np.full((ROWS, COLS), "X")  # Start with an empty grid
+        new_row_idx = ROWS - 1  # Start from the bottom
+
+        # Fill the new grid with non-cleared rows
+        for r in range(ROWS - 1, -1, -1):
+            if r not in full_rows:  # If row is not full, copy it down
+                new_grid[new_row_idx] = grid[r]
+                new_row_idx -= 1
+        
+        # Update the grid
+        grid = new_grid
 
 def handle_movement():
     """Handles DAS and ARR for left/right movement and resets lock delay when moving."""
