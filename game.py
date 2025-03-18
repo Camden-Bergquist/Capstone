@@ -6,14 +6,14 @@ import time
 # Constants
 DEFAULT_WIDTH, DEFAULT_HEIGHT = 360, 700
 COLS, ROWS = 10, 24  # Play matrix dimensions
-VISIBLE_ROWS = 20
+VISIBLE_ROWS = 20 # Play matrix rows visible to the plauyer
 GRID_WIDTH, GRID_HEIGHT = 300, 600
 LOCK_DELAY = 250  # Lock delay in milliseconds
 DAS = 150  # Delayed Auto-Shift in milliseconds
 ARR = 75  # Auto Repeat Rate in milliseconds
 SOFT_DROP_DAS = 75  # Delay before repeated soft drops start (in milliseconds)
 SOFT_DROP_ARR = 35  # Time between additional soft drops when held (in milliseconds)
-GRAVITY = 500  # Default fall speed (1000ms = 1 second per row)
+GRAVITY = 500  # Default fall speed in milliseconds (1000ms = 1 second per row)
 LOCKOUT_OVERRIDE = 2000  # Time in milliseconds before forced lockout
 
 # Track movement state
@@ -58,6 +58,41 @@ TETRIMINO_SHAPES = {
     "I": [[(0, 0), (0, 1), (0, 2), (0, 3)]]
 }
 
+PIECE_PIVOTS = {
+    "L": 1,  # Middle of three-segment row
+    "J": 1,
+    "T": 1,
+    "S": 1,  # Lower of vertical two-stack
+    "Z": 1,
+    "I": 1,  # Center horizontally, bottom-most square vertically
+    "O": 0  # True center, does not move
+}
+
+# SRS Wall Kick Data (J, L, S, T, Z)
+SRS_WALL_KICKS = {
+    (0, "R"): [(0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2)],  # 0 → R
+    ("R", 0): [(0, 0), (1, 0), (1, -1), (0, 2), (1, 2)],  # R → 0
+    ("R", 2): [(0, 0), (1, 0), (1, -1), (0, 2), (1, 2)],  # R → 2
+    (2, "R"): [(0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2)],  # 2 → R
+    (2, "L"): [(0, 0), (1, 0), (1, 1), (0, -2), (1, -2)],  # 2 → L
+    ("L", 2): [(0, 0), (-1, 0), (-1, -1), (0, 2), (-1, 2)],  # L → 2
+    ("L", 0): [(0, 0), (-1, 0), (-1, -1), (0, 2), (-1, 2)],  # L → 0
+    (0, "L"): [(0, 0), (1, 0), (1, 1), (0, -2), (1, -2)],  # 0 → L
+}
+
+# SRS Wall Kick Data for I-Piece (Different from other pieces)
+SRS_WALL_KICKS_I = {
+    (0, "R"): [(0, 0), (-2, 0), (1, 0), (-2, -1), (1, 2)],
+    ("R", 0): [(0, 0), (2, 0), (-1, 0), (2, 1), (-1, -2)],
+    ("R", 2): [(0, 0), (-1, 0), (2, 0), (-1, 2), (2, -1)],
+    (2, "R"): [(0, 0), (1, 0), (-2, 0), (1, -2), (-2, 1)],
+    (2, "L"): [(0, 0), (2, 0), (-1, 0), (2, 1), (-1, -2)],
+    ("L", 2): [(0, 0), (-2, 0), (1, 0), (-2, -1), (1, 2)],
+    ("L", 0): [(0, 0), (-1, 0), (2, 0), (-1, 2), (2, -1)],
+    (0, "L"): [(0, 0), (1, 0), (-2, 0), (1, -2), (-2, 1)],
+}
+
+
 # Initialize grid
 grid = np.full((ROWS, COLS), "X")
 
@@ -72,13 +107,13 @@ def is_valid_position(piece):
 
 def lock_piece():
     """Locks the current piece into the grid and spawns a new piece."""
-    global current_piece, current_piece_type, game_over
+    global current_piece, current_piece_type, current_rotation, game_over
     for r, c in current_piece:
         if r >= 0:
             grid[r, c] = current_piece_type  # Lock piece into the grid
     
     # Spawn a new piece
-    current_piece_type, current_piece = spawn_piece()
+    current_piece_type, current_piece, current_rotation = spawn_piece()
     
     # Check if the new piece is already colliding (Game Over)
     if not is_valid_position(current_piece):
@@ -116,22 +151,22 @@ def refill_bag():
     piece_bag = random.sample(list(TETRIMINO_SHAPES.keys()), len(TETRIMINO_SHAPES))  # Shuffle all 7 pieces
 
 def spawn_piece():
-    """Spawn a new piece from the 7-bag system, 2 rows higher than before."""
+    """Spawn a new piece from the 7-bag randomization system."""
     global piece_bag
 
-    if not piece_bag:
+    if not piece_bag:  # If the bag is empty, refill it
         refill_bag()
 
-    piece_type = piece_bag.pop(0)
+    piece_type = piece_bag.pop(0)  # Take the first piece from the bag
     piece = TETRIMINO_SHAPES[piece_type][0]
 
     # Spawn the piece 2 rows higher
     adjusted_piece = [(r + 2, c + 4) if piece_type != "I" else (r + 2, c + 3) for r, c in piece]
 
-    return piece_type, adjusted_piece
+    return piece_type, adjusted_piece, 0 # (0 = spawn state)
 
 # Initialize game state
-current_piece_type, current_piece = spawn_piece()
+current_piece_type, current_piece, current_rotation = spawn_piece()
 game_over = False
 
 # Initialize pygame
@@ -249,6 +284,212 @@ def handle_gravity():
         lock_piece()
         lockout_override_timer = 0  # Reset override timer after locking
 
+def rotate_piece(direction):
+    """Rotates the current piece using SRS with wall kicks, handling I-piece separately."""
+    global current_piece, current_piece_type, current_rotation
+    global gravity_lock_timer, soft_drop_lock_timer
+
+    # Rotation states order
+    rotation_states = [0, "R", 2, "L"]
+
+    # O-piece does not rotate at all
+    if current_piece_type == "O":
+        gravity_lock_timer = 0  # Reset lock delay
+        soft_drop_lock_timer = 0
+        return
+
+    # Determine the new rotation state
+    if direction == "R":  # Clockwise
+        new_rotation = rotation_states[(rotation_states.index(current_rotation) + 1) % 4]
+    else:  # Counter-clockwise
+        new_rotation = rotation_states[(rotation_states.index(current_rotation) - 1) % 4]
+
+    # Special case for I-piece (different pivot point logic)
+    if current_piece_type == "I":
+        rotate_I_piece(direction, new_rotation)
+        return
+
+    # Find pivot block index based on piece type
+    pivot_index = PIECE_PIVOTS[current_piece_type]
+    pivot_r, pivot_c = current_piece[pivot_index]  # Get pivot position
+
+    # Rotate each block around the pivot
+    if direction == "R":  # Clockwise 90°
+        new_piece = [(pivot_r + (c - pivot_c), pivot_c - (r - pivot_r)) for r, c in current_piece]
+    else:  # Counter-clockwise 90°
+        new_piece = [(pivot_r - (c - pivot_c), pivot_c + (r - pivot_r)) for r, c in current_piece]
+
+    # Choose correct SRS wall kick data
+    kick_data = SRS_WALL_KICKS
+    kick_tests = kick_data.get((current_rotation, new_rotation), [(0, 0)])
+
+    # Try applying each kick
+    for kick_x, kick_y in kick_tests:
+        kicked_piece = [(r + kick_y, c + kick_x) for r, c in new_piece]
+        if is_valid_position(kicked_piece):  # If no collision, apply rotation
+            current_piece = kicked_piece
+            current_rotation = new_rotation
+            gravity_lock_timer = 0  # Reset lock delay
+            soft_drop_lock_timer = 0
+            return True  # Rotation succeeded
+
+    return False  # Rotation failed, piece stays the same
+
+def rotate_I_piece(direction, new_rotation):
+    """Handles I-piece rotation using correct pivot alignment in SRS."""
+    global current_piece, current_rotation
+    global gravity_lock_timer, soft_drop_lock_timer
+    
+    if current_rotation == 0:  # Horizontal (Facing Upward)
+        # Extract mino positions sorted by column to correctly identify mino indexes
+        mino_positions = sorted(current_piece, key=lambda pos: pos[1])  # Sort by column
+
+        if direction == "L":  # Left Rotation
+            pivot_col = mino_positions[1][1]  # Mino 1's column (Pivot)
+            pivot_row = mino_positions[1][0]  # Mino 1's row
+            new_piece = [
+                (pivot_row + 2, pivot_col),  # Mino 0 (Lowest)
+                (pivot_row + 1, pivot_col),  # Mino 1 (Below)
+                (pivot_row, pivot_col),      # Mino 2 (Pivot)
+                (pivot_row - 1, pivot_col)   # Mino 3 (Above)
+            ]
+
+        else:  # Right Rotation
+            pivot_col = mino_positions[2][1]  # Mino 2's column (Pivot)
+            pivot_row = mino_positions[2][0]  # Mino 2's row
+            new_piece = [
+                (pivot_row - 1, pivot_col),  # Mino 0 (Above)
+                (pivot_row, pivot_col),      # Mino 1 (Pivot)
+                (pivot_row + 1, pivot_col),  # Mino 2 (Below)
+                (pivot_row + 2, pivot_col)   # Mino 3 (Lowest)
+            ]
+
+        # Apply SRS wall kicks
+        kick_tests = SRS_WALL_KICKS_I.get((current_rotation, new_rotation), [(0, 0)])
+        for kick_x, kick_y in kick_tests:
+            kicked_piece = [(r + kick_y, c + kick_x) for r, c in new_piece]
+            if is_valid_position(kicked_piece):
+                current_piece = kicked_piece
+                current_rotation = new_rotation
+                gravity_lock_timer = 0  # Reset lock delay
+                soft_drop_lock_timer = 0
+                return True  # Rotation succeeded
+            
+        return False  # Rotation failed, piece stays the same
+
+    elif current_rotation == "R":  # Vertical "R" Position
+            # Extract mino positions sorted by row to correctly identify mino indexes
+            mino_positions = sorted(current_piece, key=lambda pos: pos[0])  # Sort by row
+
+            if direction == "R":  # Right Rotation (Aligns Horizontally)
+                pivot_row = mino_positions[2][0]  # Mino 2's row (Pivot)
+                pivot_col = mino_positions[2][1]  # Mino 2's column (Pivot)
+                new_piece = [
+                    (pivot_row, pivot_col - 2),  # Mino 3 (Leftmost)
+                    (pivot_row, pivot_col - 1),  # Mino 2 (Left)
+                    (pivot_row, pivot_col),      # Mino 1 (Pivot)
+                    (pivot_row, pivot_col + 1)   # Mino 0 (Rightmost)
+                ]
+
+            else:  # Left Rotation (Aligns Horizontally)
+                pivot_row = mino_positions[1][0]  # Mino 1's row (Pivot)
+                pivot_col = mino_positions[1][1]  # Mino 1's column (Pivot)
+                new_piece = [
+                    (pivot_row, pivot_col - 2),  # Mino 0 (Leftmost)
+                    (pivot_row, pivot_col - 1),  # Mino 1 (Left)
+                    (pivot_row, pivot_col),      # Mino 2 (Pivot)
+                    (pivot_row, pivot_col + 1)   # Mino 3 (Rightmost)
+                ]
+
+            # Apply SRS wall kicks
+            kick_tests = SRS_WALL_KICKS_I.get((current_rotation, new_rotation), [(0, 0)])
+            for kick_x, kick_y in kick_tests:
+                kicked_piece = [(r + kick_y, c + kick_x) for r, c in new_piece]
+                if is_valid_position(kicked_piece):
+                    current_piece = kicked_piece
+                    current_rotation = new_rotation
+                    gravity_lock_timer = 0  # Reset lock delay
+                    soft_drop_lock_timer = 0
+                    return True  # Rotation succeeded
+
+            return False  # Rotation failed, piece stays the same
+    
+    elif current_rotation == 2:  # Horizontal "Upside-Down"
+        # Extract mino positions sorted by column to correctly identify mino indexes
+        mino_positions = sorted(current_piece, key=lambda pos: pos[1])  # Sort by column
+        mino_positions.reverse()  # Ensure order matches expected mino indices in state 2
+
+        if direction == "L":  # Left Rotation (Aligns Vertically)
+            pivot_row = mino_positions[1][0]  # Mino 1's row (Pivot)
+            pivot_col = mino_positions[1][1]  # Mino 1's column (Pivot)
+            new_piece = [
+                (pivot_row - 2, pivot_col),  # Mino 0 (Topmost)
+                (pivot_row - 1, pivot_col),  # Mino 1 (Above Pivot)
+                (pivot_row, pivot_col),      # Mino 2 (Pivot)
+                (pivot_row + 1, pivot_col)   # Mino 3 (Below Pivot)
+            ]
+
+        else:  # Right Rotation (Aligns Vertically)
+            pivot_row = mino_positions[2][0]  # Mino 2's row (Pivot)
+            pivot_col = mino_positions[2][1]  # Mino 2's column (Pivot)
+            new_piece = [
+                (pivot_row - 2, pivot_col),  # Mino 3 (Topmost)
+                (pivot_row - 1, pivot_col),  # Mino 2 (Above Pivot)
+                (pivot_row, pivot_col),      # Mino 1 (Pivot)
+                (pivot_row + 1, pivot_col)   # Mino 0 (Lowest)
+            ]
+
+        # Apply SRS wall kicks
+        kick_tests = SRS_WALL_KICKS_I.get((current_rotation, new_rotation), [(0, 0)])
+        for kick_x, kick_y in kick_tests:
+            kicked_piece = [(r + kick_y, c + kick_x) for r, c in new_piece]
+            if is_valid_position(kicked_piece):
+                current_piece = kicked_piece
+                current_rotation = new_rotation
+                gravity_lock_timer = 0  # Reset lock delay
+                soft_drop_lock_timer = 0
+                return True  # Rotation succeeded
+
+        return False  # Rotation failed, piece stays the same
+
+    elif current_rotation == "L":  # Vertical "L" Position
+        # Extract mino positions sorted by row to correctly identify mino indexes
+        mino_positions = sorted(current_piece, key=lambda pos: pos[0])  # Sort by row
+        mino_positions.reverse()  # Ensure order matches expected mino indices in state 2
+
+        if direction == "L":  # Left Rotation (Aligns Horizontally)
+            pivot_row = mino_positions[2][0]  # Mino 1's row (Pivot)
+            pivot_col = mino_positions[2][1]  # Mino 1's column (Pivot)
+            new_piece = [
+                (pivot_row, pivot_col - 1),  # Mino 3 (Leftmost)
+                (pivot_row, pivot_col),      # Mino 2 (Pivot)
+                (pivot_row, pivot_col + 1),  # Mino 1 (Right)
+                (pivot_row, pivot_col + 2)   # Mino 0 (Rightmost)
+            ]
+
+        else:  # Right Rotation (Aligns Horizontally)
+            pivot_row = mino_positions[1][0]  # Mino 2's row (Pivot)
+            pivot_col = mino_positions[1][1]  # Mino 2's column (Pivot)
+            new_piece = [
+                (pivot_row, pivot_col - 1),  # Mino 0 (Leftmost)
+                (pivot_row, pivot_col),      # Mino 1 (Pivot)
+                (pivot_row, pivot_col + 1),  # Mino 2 (Right)
+                (pivot_row, pivot_col + 2)   # Mino 3 (Rightmost)
+            ]
+
+        # Apply SRS wall kicks
+        kick_tests = SRS_WALL_KICKS_I.get((current_rotation, new_rotation), [(0, 0)])
+        for kick_x, kick_y in kick_tests:
+            kicked_piece = [(r + kick_y, c + kick_x) for r, c in new_piece]
+            if is_valid_position(kicked_piece):
+                current_piece = kicked_piece
+                current_rotation = new_rotation
+                gravity_lock_timer = 0  # Reset lock delay
+                soft_drop_lock_timer = 0
+                return True  # Rotation succeeded
+
+        return False  # Rotation failed, piece stays the same
+
 def get_ghost_piece():
     """Returns the lowest valid position for the current piece (ghost piece)."""
     ghost_piece = list(current_piece)  # Copy the current piece
@@ -339,6 +580,10 @@ def main():
                     soft_drop_pressed = True
                 elif event.key == pygame.K_w:
                     hard_drop()  # Hard drop immediately
+                elif event.key == pygame.K_LEFT:  # Counter-clockwise rotation
+                    rotate_piece("L")
+                elif event.key == pygame.K_RIGHT:  # Clockwise rotation
+                    rotate_piece("R")
 
             elif event.type == pygame.KEYUP:
                 if event.key == pygame.K_a:
