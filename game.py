@@ -35,8 +35,6 @@ secondary_bag = []  # The backup bag (future pieces)
 next_queue = []     # Holds the next five pieces to display
 bag_piece_count = 0  # Tracks how many pieces have spawned
 
-
-
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
 OUTSIDE_BACKGROUND = (110, 110, 110)
@@ -163,18 +161,21 @@ def soft_drop_or_lock():
 
 
 def refill_bag():
-    """Refills the piece bags, maintaining two bags at all times."""
+    """Refills the piece bags, maintaining two bags at all times and printing their contents."""
     global primary_bag, secondary_bag
+
+    full_bag = ["I", "O", "T", "L", "J", "S", "Z"]  # Correct 7-bag with all pieces
 
     # If both bags are empty, fill both
     if not primary_bag and not secondary_bag:
-        primary_bag = random.sample(list(TETRIMINO_SHAPES.keys()), len(TETRIMINO_SHAPES))
-        secondary_bag = random.sample(list(TETRIMINO_SHAPES.keys()), len(TETRIMINO_SHAPES))
+        primary_bag = random.sample(full_bag, len(full_bag))  # Shuffle first bag
+        secondary_bag = random.sample(full_bag, len(full_bag))  # Shuffle second bag
 
-    # If only the primary bag is empty, shift secondary to primary and make a new secondary
+    # If only the primary bag is empty, refill it from the secondary and create a new secondary
     elif not primary_bag:
         primary_bag = secondary_bag
-        secondary_bag = random.sample(list(TETRIMINO_SHAPES.keys()), len(TETRIMINO_SHAPES))
+        secondary_bag = random.sample(full_bag, len(full_bag))  # Shuffle new secondary bag
+
 
 def spawn_piece():
     """Spawns a new piece from the next queue, ensuring the queue remains filled."""
@@ -193,8 +194,7 @@ def spawn_piece():
     if bag_piece_count < 7:
         bag_piece_count += 1
     else:
-        bag_piece_count = 0
-
+        bag_piece_count = 1
     # **Ensure the queue remains filled**
     while len(next_queue) < 5:
         if not primary_bag:
@@ -208,12 +208,6 @@ def spawn_piece():
     adjusted_piece = [(r + 2, c + 4) if current_piece_type != "I" else (r + 2, c + 3) for r, c in piece]
 
     return current_piece_type, adjusted_piece, 0  # (0 = spawn state)
-
-
-
-
-
-
 
 def hold_piece():
     """Handles the hold mechanic. Can only be used once per active piece."""
