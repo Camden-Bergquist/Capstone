@@ -4,7 +4,7 @@ import random
 import time
 
 # Constants
-DEFAULT_WIDTH, DEFAULT_HEIGHT = 360, 700
+DEFAULT_WIDTH, DEFAULT_HEIGHT = 800, 700
 COLS, ROWS = 10, 24  # Play matrix dimensions
 VISIBLE_ROWS = 20 # Play matrix rows visible to the plauyer
 GRID_WIDTH, GRID_HEIGHT = 300, 600
@@ -550,37 +550,107 @@ def get_ghost_piece():
 
     return ghost_piece
 
-def draw_grid():
-    """Draws only the visible part of the Tetris grid, hiding the top 4 rows."""
+def draw_hold_box():
+    """Draws the hold box aligned with the top half-cell margin, with proper sizing."""
     width, height = screen.get_size()
 
     # Calculate square size dynamically
-    square_size = min(width // COLS, height // VISIBLE_ROWS)
+    square_size = min(width // COLS, height // (VISIBLE_ROWS + 1))  # +1 to account for extra margin
     grid_width = square_size * COLS
-    grid_height = square_size * VISIBLE_ROWS
+    grid_height = square_size * (VISIBLE_ROWS + 1)  # Expanded to include margins
+
+    # Centering grid in the window
+    margin_x = (width - grid_width) // 2
+    margin_y = (height - grid_height) // 2
+
+    # Corrected hold box position: Shift it **exactly half a cell down** to align with the margin
+    hold_box_width = square_size * 5  # 5-wide instead of 4-wide
+    hold_box_height = square_size * 4  # 4-tall
+    hold_box_x = margin_x - hold_box_width - 10  # Left of the grid with a small gap
+    hold_box_y = margin_y + square_size * 0.5  # **Shift down by half a cell**
+
+    # Draw hold box background
+    pygame.draw.rect(screen, GRID_BACKGROUND, (hold_box_x, hold_box_y, hold_box_width, hold_box_height))
+    pygame.draw.rect(screen, GRID_LINES, (hold_box_x, hold_box_y, hold_box_width, hold_box_height), 2)
+
+    # Draw the held piece
+    if held_piece:
+        piece_shape = TETRIMINO_SHAPES[held_piece][0]
+        piece_color = TETRIMINO_COLORS[held_piece]
+
+        # Find min/max positions of the piece
+        min_x = min(c for r, c in piece_shape)
+        min_y = min(r for r, c in piece_shape)
+        max_x = max(c for r, c in piece_shape)
+        max_y = max(r for r, c in piece_shape)
+
+        piece_width = (max_x - min_x + 1) * square_size
+        piece_height = (max_y - min_y + 1) * square_size
+
+        # Center the piece in the hold box
+        offset_x = hold_box_x + (hold_box_width - piece_width) // 2
+        offset_y = hold_box_y + (hold_box_height - piece_height) // 2
+
+        for r, c in piece_shape:
+            piece_rect = pygame.Rect(
+                offset_x + (c - min_x) * square_size,
+                offset_y + (r - min_y) * square_size,
+                square_size, square_size
+            )
+            pygame.draw.rect(screen, piece_color, piece_rect)
+            pygame.draw.rect(screen, PIECE_OUTLINE, piece_rect, 1)
+
+    # Draw "HOLD" label below the hold box
+    font = pygame.font.Font(None, 40)
+    text = font.render("HOLD", True, (255, 255, 255))
+    text_rect = text.get_rect(center=(hold_box_x + hold_box_width // 2, hold_box_y + hold_box_height + 20))
+    screen.blit(text, text_rect)
+
+def draw_grid():
+    """Draws only the visible part of the Tetris grid, with a half-cell-high margin at the top and bottom,
+       and colors those margins with OUTSIDE_BACKGROUND."""
+    width, height = screen.get_size()
+
+    # Calculate square size dynamically
+    square_size = min(width // COLS, height // (VISIBLE_ROWS + 1))  # +1 ensures space for half-cell margins
+    grid_width = square_size * COLS
+    grid_height = square_size * (VISIBLE_ROWS + 1)  # Expanded to include margins
 
     # Center the grid in the window
     margin_x = (width - grid_width) // 2
     margin_y = (height - grid_height) // 2
 
+    # Fill entire screen with OUTSIDE_BACKGROUND
     screen.fill(OUTSIDE_BACKGROUND)
 
-    # Draw grid background
-    pygame.draw.rect(screen, GRID_BACKGROUND, (margin_x, margin_y, grid_width, grid_height))
+    # Draw extra half-cell margins at the top and bottom
+    top_margin_rect = pygame.Rect(margin_x, margin_y, grid_width, square_size * 0.5)
+    bottom_margin_rect = pygame.Rect(margin_x, margin_y + grid_height - square_size * 0.5, grid_width, square_size * 0.5)
+
+    pygame.draw.rect(screen, OUTSIDE_BACKGROUND, top_margin_rect)
+    pygame.draw.rect(screen, OUTSIDE_BACKGROUND, bottom_margin_rect)
+
+    # Draw grid background (only inside the main play area)
+    pygame.draw.rect(screen, GRID_BACKGROUND, (margin_x, margin_y + square_size * 0.5, grid_width, grid_height - square_size))
 
     # Get ghost piece position
     ghost_piece = get_ghost_piece()
     ghost_color = TETRIMINO_COLORS[current_piece_type]
 
-    # Draw only the visible portion of the grid (bottom 20 rows)
+    # Shift row rendering by exactly 3.5 rows to create the half-cell margins
     for row in range(4, ROWS):  # Start from row 4 (hide first 4 rows)
         for col in range(COLS):
             cell_value = grid[row, col]
             color = TETRIMINO_COLORS[cell_value] if cell_value in TETRIMINO_COLORS else GRID_BACKGROUND
 
-            # Adjust row index for rendering (shifted up by 4)
-            adjusted_row = row - 4
-            cell_rect = pygame.Rect(margin_x + col * square_size, margin_y + adjusted_row * square_size, square_size, square_size)
+            # Correctly align each cell to create a half-cell margin
+            adjusted_row = row - 3.5  # Shifts everything down by half a cell
+            cell_rect = pygame.Rect(
+                margin_x + col * square_size,
+                margin_y + adjusted_row * square_size,
+                square_size,
+                square_size
+            )
 
             pygame.draw.rect(screen, color, cell_rect)
             if cell_value != "X":
@@ -591,18 +661,29 @@ def draw_grid():
     # Draw ghost piece (hollow outline)
     for r, c in ghost_piece:
         if 4 <= r < ROWS:  # Only draw ghost if in visible area
-            adjusted_row = r - 4
-            ghost_rect = pygame.Rect(margin_x + c * square_size, margin_y + adjusted_row * square_size, square_size, square_size)
+            adjusted_row = r - 3.5
+            ghost_rect = pygame.Rect(
+                margin_x + c * square_size,
+                margin_y + adjusted_row * square_size,
+                square_size,
+                square_size
+            )
             pygame.draw.rect(screen, ghost_color, ghost_rect, 2)
 
     # Draw current falling piece
     for r, c in current_piece:
         if 4 <= r < ROWS:  # Only draw piece if in visible area
-            adjusted_row = r - 4
-            cell_rect = pygame.Rect(margin_x + c * square_size, margin_y + adjusted_row * square_size, square_size, square_size)
+            adjusted_row = r - 3.5
+            cell_rect = pygame.Rect(
+                margin_x + c * square_size,
+                margin_y + adjusted_row * square_size,
+                square_size,
+                square_size
+            )
             pygame.draw.rect(screen, TETRIMINO_COLORS[current_piece_type], cell_rect)
             pygame.draw.rect(screen, PIECE_OUTLINE, cell_rect, 1)
 
+    draw_hold_box()
     pygame.display.flip()
 
 def main():
