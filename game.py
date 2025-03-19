@@ -34,6 +34,9 @@ primary_bag = []    # The active bag for spawning pieces
 secondary_bag = []  # The backup bag (future pieces)
 next_queue = []     # Holds the next five pieces to display
 bag_piece_count = 0  # Tracks how many pieces have spawned
+score = 0  # Track player's score
+lines_cleared = 0  # Track number of lines cleared
+start_time = time.time()  # Track game start time
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
@@ -700,13 +703,13 @@ def draw_next_box():
             pygame.draw.rect(screen, PIECE_OUTLINE, piece_rect, 1)
 
     # **Draw horizontal separator line if `bag_piece_count == 7` or `bag_piece_count == 0`**
-    if bag_piece_count == 7:
+    if bag_piece_count == 6:
         separator_y = next_box_y + next_box_height - (square_size * 0.35)  # 0.35 cells above bottom edge
         pygame.draw.line(screen, GRID_LINES, 
                          (next_box_x + 2, separator_y), 
                          (next_box_x + next_box_width - 2, separator_y), 2)
 
-    elif bag_piece_count == 0:
+    elif bag_piece_count == 7:
         separator_y = next_box_y + (square_size * 0.35)  # 0.35 cells below top edge
         pygame.draw.line(screen, GRID_LINES, 
                          (next_box_x + 2, separator_y), 
@@ -824,6 +827,62 @@ def draw_extended_next_queue(next_box_y, next_box_height):
                          (extended_box_x + 2, separator_y), 
                          (extended_box_x + extended_box_width - 2, separator_y), 2)
 
+def draw_stats_box():
+    """Draws a single unified box containing TIME, SCORE, and LINES on the left side, under the hold box."""
+    global score, lines_cleared, start_time
+
+    width, height = screen.get_size()
+
+    # Calculate square size dynamically
+    square_size = min(width // COLS, height // (VISIBLE_ROWS + 1))
+    grid_width = square_size * COLS
+    grid_height = square_size * (VISIBLE_ROWS + 1)
+
+    # Centering the grid
+    margin_x = (width - grid_width) // 2
+    margin_y = (height - grid_height) // 2
+
+    # **Align bottom edge with the extended next queue**
+    extended_box_bottom = margin_y + GRID_HEIGHT - (square_size * 1.1)  # Bottom of extended next queue
+    stats_box_y = margin_y + (square_size * 6.5)  # Start below hold box
+    stats_box_x = margin_x - (square_size * 5) - 10  # Left side of grid
+    stats_box_width = square_size * 5  # Matches extended next queue width
+    stats_box_height = extended_box_bottom - stats_box_y  # Same bottom alignment
+
+    # Draw unified stats box
+    pygame.draw.rect(screen, GRID_BACKGROUND, (stats_box_x, stats_box_y, stats_box_width, stats_box_height))
+    pygame.draw.rect(screen, GRID_LINES, (stats_box_x, stats_box_y, stats_box_width, stats_box_height), 2)
+
+    # Calculate elapsed time in MM:SS format
+    elapsed_time = int(time.time() - start_time)
+    minutes = elapsed_time // 60
+    seconds = elapsed_time % 60
+    time_display = f"{minutes:02}:{seconds:02}"
+
+    # Font for text
+    font = pygame.font.Font(None, 40)
+
+    # Divide the box into three evenly spaced sections
+    labels = ["TIME:", "SCORE:", "LINES:"]
+    values = [time_display, score, lines_cleared]
+    section_height = stats_box_height / 3  # Divide box into equal thirds
+
+    for i, (label, value) in enumerate(zip(labels, values)):
+        section_y = stats_box_y + (i * section_height)
+
+        # Render text
+        label_render = font.render(label, True, (255, 255, 255))
+        value_render = font.render(str(value), True, (255, 255, 255))
+
+        # Center text within its section
+        label_rect = label_render.get_rect(center=(stats_box_x + stats_box_width // 2, section_y + square_size * 0.75))
+        value_rect = value_render.get_rect(center=(stats_box_x + stats_box_width // 2, section_y + square_size * 2))
+
+        # Draw text
+        screen.blit(label_render, label_rect)
+        screen.blit(value_render, value_rect)
+
+
 def draw_grid():
     """Draws only the visible part of the Tetris grid, with a half-cell-high margin at the top and bottom,
        and colors those margins with OUTSIDE_BACKGROUND."""
@@ -903,6 +962,8 @@ def draw_grid():
 
     draw_hold_box()
     draw_next_box()
+    draw_stats_box()
+
     next_box_y, next_box_height = draw_next_box()
     draw_extended_next_queue(next_box_y, next_box_height)
     pygame.display.flip()
