@@ -39,6 +39,7 @@ lines_cleared = 0  # Track number of lines cleared
 start_time = time.time()  # Track game start time
 total_pieces_placed = 0  # Track the number of pieces placed
 b2b = False # Track whether or not the player currently has back-to-back status
+clear_combo = 0 # Track line clear combos for scoring.
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
@@ -266,12 +267,15 @@ def is_grounded():
 
 def clear_lines():
     """Checks for full lines, clears them, shifts the above lines down, and awards points."""
-    global grid, lines_cleared, score, b2b
+    global grid, lines_cleared, score, b2b, clear_combo
 
     # Identify full rows
     full_rows = [r for r in range(ROWS) if all(grid[r, c] != "X" for c in range(COLS))]
 
     num_cleared = len(full_rows)  # Number of lines cleared
+
+    if num_cleared == 0:
+        clear_combo = 0
 
     if num_cleared > 0:
         # Increment total cleared lines
@@ -292,6 +296,10 @@ def clear_lines():
             b2b = True
         elif num_cleared == 4 and b2b == True:
             score += 1200  # Back-to-back Tetris
+
+        # Assign bonus points for combo and increment combo counter only *after* giving score
+        score += (50 * clear_combo)
+        clear_combo += 1
 
         # Remove full rows and insert new empty rows at the top
         new_grid = np.full((ROWS, COLS), "X")  # Start with an empty grid
