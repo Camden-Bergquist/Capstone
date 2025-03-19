@@ -255,12 +255,15 @@ def is_grounded():
 
 def clear_lines():
     """Checks for full lines, clears them, and shifts the above lines down."""
-    global grid
+    global grid, lines_cleared
     
     # Identify full rows
     full_rows = [r for r in range(ROWS) if all(grid[r, c] != "X" for c in range(COLS))]
 
     if full_rows:
+        # Increment the number of cleared lines
+        lines_cleared += len(full_rows)
+
         # Remove full rows and insert new empty rows at the top
         new_grid = np.full((ROWS, COLS), "X")  # Start with an empty grid
         new_row_idx = ROWS - 1  # Start from the bottom
