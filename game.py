@@ -13,7 +13,7 @@ DAS = 150  # Delayed Auto-Shift in milliseconds
 ARR = 75  # Auto Repeat Rate in milliseconds
 SOFT_DROP_DAS = 75  # Delay before repeated soft drops start (in milliseconds)
 SOFT_DROP_ARR = 35  # Time between additional soft drops when held (in milliseconds)
-GRAVITY = 500000  # Default fall speed in milliseconds (1000ms = 1 second per row)
+GRAVITY = 500  # Default fall speed in milliseconds (1000ms = 1 second per row)
 LOCKOUT_OVERRIDE = 2000  # Time in milliseconds before forced lockout
 
 # Tracking variables
@@ -38,6 +38,7 @@ score = 0  # Track player's score
 lines_cleared = 0  # Track number of lines cleared
 start_time = time.time()  # Track game start time
 total_pieces_placed = 0  # Track the number of pieces placed
+b2b = False # Track whether or not the player currently has back-to-back status
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
@@ -153,11 +154,21 @@ def move_piece(dx, dy):
     return False
 
 def hard_drop():
-    """Instantly moves the piece downward until it collides, then locks."""
-    global current_piece
+    """Instantly moves the piece downward until it collides, then locks.
+       Awards 2 points for each space the piece moves down."""
+    global current_piece, score
+
+    drop_distance = 0  # Track how many spaces the piece moves
+
     while move_piece(0, 1):  # Move down until collision
-        pass
-    lock_piece()  # Lock immediately
+        drop_distance += 1  # Count the movement steps
+
+    # Award hard drop points (2 points per space moved)
+    score += drop_distance * 2
+
+    # Lock immediately after reaching the lowest position
+    lock_piece()
+
 
 def soft_drop_or_lock():
     """Moves the piece down one step. If it can't move, it locks after 0.5s."""
@@ -255,7 +266,7 @@ def is_grounded():
 
 def clear_lines():
     """Checks for full lines, clears them, shifts the above lines down, and awards points."""
-    global grid, lines_cleared, score
+    global grid, lines_cleared, score, b2b
 
     # Identify full rows
     full_rows = [r for r in range(ROWS) if all(grid[r, c] != "X" for c in range(COLS))]
@@ -269,12 +280,18 @@ def clear_lines():
         # Award points based on the number of lines cleared
         if num_cleared == 1:
             score += 100  # Single
+            b2b = False
         elif num_cleared == 2:
             score += 300  # Double
+            b2b = False
         elif num_cleared == 3:
             score += 500  # Triple
-        elif num_cleared == 4:
-            score += 800  # Quad
+            b2b = False
+        elif num_cleared == 4 and b2b == False:
+            score += 800  # Tetris
+            b2b = True
+        elif num_cleared == 4 and b2b == True:
+            score += 1200  # Back-to-back Tetris
 
         # Remove full rows and insert new empty rows at the top
         new_grid = np.full((ROWS, COLS), "X")  # Start with an empty grid
@@ -320,28 +337,31 @@ def handle_movement():
         arr_timer = 0  # Reset ARR
 
 def handle_soft_drop():
-    """Handles DAS and ARR for soft dropping, with proper locking and lockout override."""
-    global soft_drop_das_timer, soft_drop_arr_timer, soft_drop_lock_timer, lockout_override_timer
+    """Handles DAS and ARR for soft dropping, with proper locking and lockout override.
+       Awards 1 point per space a piece is soft dropped."""
+    global soft_drop_das_timer, soft_drop_arr_timer, soft_drop_lock_timer, lockout_override_timer, score
 
     current_time = pygame.time.get_ticks()
 
     if soft_drop_pressed:
         if soft_drop_das_timer == 0:
             soft_drop_das_timer = current_time  # Start DAS timer
-            if not move_piece(0, 1) and is_grounded():
+            if move_piece(0, 1):  # Successfully moved down
+                score += 1  # Award soft drop point
+            elif is_grounded():  # If grounded, start lock timer
                 if soft_drop_lock_timer == 0:
                     soft_drop_lock_timer = current_time
-                
                 if lockout_override_timer == 0:  # Start override timer if not started
                     lockout_override_timer = current_time
 
         elif current_time - soft_drop_das_timer >= SOFT_DROP_DAS:
             if soft_drop_arr_timer == 0 or current_time - soft_drop_arr_timer >= SOFT_DROP_ARR:
-                if not move_piece(0, 1) and is_grounded():
+                if move_piece(0, 1):  # If successfully moved down
+                    score += 1  # Award soft drop point
+                elif is_grounded():
                     if soft_drop_lock_timer == 0:
                         soft_drop_lock_timer = current_time
-                    
-                    if lockout_override_timer == 0:  # Start override timer if not started
+                    if lockout_override_timer == 0:
                         lockout_override_timer = current_time
                 soft_drop_arr_timer = current_time  # Reset ARR timer
     else:
@@ -359,6 +379,7 @@ def handle_soft_drop():
     if lockout_override_timer > 0 and current_time - lockout_override_timer >= LOCKOUT_OVERRIDE and is_grounded():
         lock_piece()
         lockout_override_timer = 0  # Reset override timer after locking
+
 
 def handle_gravity():
     """Handles automatic piece falling at GRAVITY intervals and triggers lockout if needed."""
