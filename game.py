@@ -13,7 +13,7 @@ DAS = 150  # Delayed Auto-Shift in milliseconds
 ARR = 75  # Auto Repeat Rate in milliseconds
 SOFT_DROP_DAS = 75  # Delay before repeated soft drops start (in milliseconds)
 SOFT_DROP_ARR = 35  # Time between additional soft drops when held (in milliseconds)
-GRAVITY = 500  # Default fall speed in milliseconds (1000ms = 1 second per row)
+GRAVITY = 500000  # Default fall speed in milliseconds (1000ms = 1 second per row)
 LOCKOUT_OVERRIDE = 2000  # Time in milliseconds before forced lockout
 
 # Tracking variables
@@ -70,10 +70,10 @@ TETRIMINO_SHAPES = {
 
 PIECE_PIVOTS = {
     "L": 1,  # Middle of three-segment row
-    "J": 1,
-    "T": 1,
+    "J": 1,  # Middle of three-segment row
+    "T": 1,  # Middle of three-segment row
     "S": 1,  # Lower of vertical two-stack
-    "Z": 1,
+    "Z": 2,  # Lower of vertical two-stack
     "I": 1,  # Center horizontally, bottom-most square vertically
     "O": 0  # True center, does not move
 }
@@ -254,15 +254,27 @@ def is_grounded():
     return False
 
 def clear_lines():
-    """Checks for full lines, clears them, and shifts the above lines down."""
-    global grid, lines_cleared
-    
+    """Checks for full lines, clears them, shifts the above lines down, and awards points."""
+    global grid, lines_cleared, score
+
     # Identify full rows
     full_rows = [r for r in range(ROWS) if all(grid[r, c] != "X" for c in range(COLS))]
 
-    if full_rows:
-        # Increment the number of cleared lines
-        lines_cleared += len(full_rows)
+    num_cleared = len(full_rows)  # Number of lines cleared
+
+    if num_cleared > 0:
+        # Increment total cleared lines
+        lines_cleared += num_cleared
+
+        # Award points based on the number of lines cleared
+        if num_cleared == 1:
+            score += 100  # Single
+        elif num_cleared == 2:
+            score += 300  # Double
+        elif num_cleared == 3:
+            score += 500  # Triple
+        elif num_cleared == 4:
+            score += 800  # Quad
 
         # Remove full rows and insert new empty rows at the top
         new_grid = np.full((ROWS, COLS), "X")  # Start with an empty grid
@@ -273,7 +285,7 @@ def clear_lines():
             if r not in full_rows:  # If row is not full, copy it down
                 new_grid[new_row_idx] = grid[r]
                 new_row_idx -= 1
-        
+
         # Update the grid
         grid = new_grid
 
