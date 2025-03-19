@@ -266,7 +266,7 @@ def is_grounded():
     return False
 
 def clear_lines():
-    """Checks for full lines, clears them, shifts the above lines down, and awards points."""
+    """Checks for full lines, clears them, shifts the above lines down, detects perfect clear, and awards points."""
     global grid, lines_cleared, score, b2b, clear_combo
 
     # Identify full rows
@@ -278,29 +278,6 @@ def clear_lines():
         clear_combo = 0
 
     if num_cleared > 0:
-        # Increment total cleared lines
-        lines_cleared += num_cleared
-
-        # Award points based on the number of lines cleared
-        if num_cleared == 1:
-            score += 100  # Single
-            b2b = False
-        elif num_cleared == 2:
-            score += 300  # Double
-            b2b = False
-        elif num_cleared == 3:
-            score += 500  # Triple
-            b2b = False
-        elif num_cleared == 4 and b2b == False:
-            score += 800  # Tetris
-            b2b = True
-        elif num_cleared == 4 and b2b == True:
-            score += 1200  # Back-to-back Tetris
-
-        # Assign bonus points for combo and increment combo counter only *after* giving score
-        score += (50 * clear_combo)
-        clear_combo += 1
-
         # Remove full rows and insert new empty rows at the top
         new_grid = np.full((ROWS, COLS), "X")  # Start with an empty grid
         new_row_idx = ROWS - 1  # Start from the bottom
@@ -311,8 +288,49 @@ def clear_lines():
                 new_grid[new_row_idx] = grid[r]
                 new_row_idx -= 1
 
+        # **Check for a perfect clear before updating the grid**
+        perfect_clear = np.all(new_grid == "X")  # If all cells are empty, it's a perfect clear
+
         # Update the grid
         grid = new_grid
+
+        # Increment total cleared lines
+        lines_cleared += num_cleared
+
+        # Award points based on the number of lines cleared
+        if num_cleared == 1 and not perfect_clear:
+            score += 100  # Single
+            b2b = False
+        elif num_cleared == 1 and perfect_clear:
+            score += 900 # PC Single
+            b2b = False
+        elif num_cleared == 2 and not perfect_clear:
+            score += 300  # Double
+            b2b = False
+        elif num_cleared == 2 and perfect_clear:
+            score += 1500  # PC Double 
+            b2b = False
+        elif num_cleared == 3 and not perfect_clear:
+            score += 500  # Triple
+            b2b = False
+        elif num_cleared == 3 and perfect_clear:
+            score += 2300  # PC Triple
+            b2b = False
+        elif num_cleared == 4 and not b2b and not perfect_clear:
+            score += 800  # Tetris
+            b2b = True
+        elif num_cleared == 4 and not b2b and perfect_clear:
+            score += 2800  # PC Tetris
+            b2b = True
+        elif num_cleared == 4 and b2b and not perfect_clear:
+            score += 1200  # Back-to-back Tetris
+        elif num_cleared == 4 and b2b and perfect_clear:
+            score += 4000  # PC back-to-back Tetris
+
+        # Assign bonus points for combo and increment combo counter only *after* giving score
+        score += (50 * clear_combo)
+        clear_combo += 1
+
 
 def handle_movement():
     """Handles DAS and ARR for left/right movement and resets lock delay when moving."""
