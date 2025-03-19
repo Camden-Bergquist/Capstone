@@ -16,7 +16,7 @@ SOFT_DROP_ARR = 35  # Time between additional soft drops when held (in milliseco
 GRAVITY = 500  # Default fall speed in milliseconds (1000ms = 1 second per row)
 LOCKOUT_OVERRIDE = 2000  # Time in milliseconds before forced lockout
 
-# Track movement state
+# Tracking variables
 move_left_pressed = False
 move_right_pressed = False
 soft_drop_pressed = False
@@ -37,11 +37,12 @@ bag_piece_count = 0  # Tracks how many pieces have spawned
 score = 0  # Track player's score
 lines_cleared = 0  # Track number of lines cleared
 start_time = time.time()  # Track game start time
+total_pieces_placed = 0  # Track the number of pieces placed
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
-OUTSIDE_BACKGROUND = (110, 110, 110)
-GRID_LINES = (150, 150, 150)
+OUTSIDE_BACKGROUND = (90, 90, 90)
+GRID_LINES = (60, 60, 60)
 PIECE_OUTLINE = (0, 0, 0)
 
 # Tetrimino colors
@@ -115,7 +116,7 @@ def is_valid_position(piece):
 
 def lock_piece():
     """Locks the current piece into the grid and spawns a new piece."""
-    global current_piece, current_piece_type, current_rotation, game_over, hold_used
+    global current_piece, current_piece_type, current_rotation, game_over, hold_used, total_pieces_placed
 
     # **Lock the piece into the grid**
     for r, c in current_piece:
@@ -127,6 +128,9 @@ def lock_piece():
 
     # **Spawn a new piece from the updated queue**
     current_piece_type, current_piece, current_rotation = spawn_piece()
+
+    # Increment piece counter.
+    total_pieces_placed += 1
 
     # **Reset hold usage (holding is allowed again)**
     hold_used = False
@@ -705,13 +709,13 @@ def draw_next_box():
     # **Draw horizontal separator line if `bag_piece_count == 7` or `bag_piece_count == 0`**
     if bag_piece_count == 6:
         separator_y = next_box_y + next_box_height - (square_size * 0.35)  # 0.35 cells above bottom edge
-        pygame.draw.line(screen, GRID_LINES, 
+        pygame.draw.line(screen, OUTSIDE_BACKGROUND, 
                          (next_box_x + 2, separator_y), 
                          (next_box_x + next_box_width - 2, separator_y), 2)
 
     elif bag_piece_count == 7:
         separator_y = next_box_y + (square_size * 0.35)  # 0.35 cells below top edge
-        pygame.draw.line(screen, GRID_LINES, 
+        pygame.draw.line(screen, OUTSIDE_BACKGROUND, 
                          (next_box_x + 2, separator_y), 
                          (next_box_x + next_box_width - 2, separator_y), 2)
 
@@ -810,26 +814,26 @@ def draw_extended_next_queue(next_box_y, next_box_height):
         # **Draw separator line in the correct position**
         if separator_index is not None and i == separator_index:
             separator_y = offset_y + piece_height + (piece_spacing - piece_height) / 2  # Center between pieces
-            pygame.draw.line(screen, GRID_LINES, 
+            pygame.draw.line(screen, OUTSIDE_BACKGROUND, 
                              (extended_box_x + 2, separator_y), 
                              (extended_box_x + extended_box_width - 2, separator_y), 2)
 
     # **Extra separators for bag_piece_count == 6 or 2**
     if extra_separator_position == "top":
         separator_y = extended_box_y + (square_size * 0.35)  # 0.35 grid cells from the top
-        pygame.draw.line(screen, GRID_LINES, 
+        pygame.draw.line(screen, OUTSIDE_BACKGROUND, 
                          (extended_box_x + 2, separator_y), 
                          (extended_box_x + extended_box_width - 2, separator_y), 2)
 
     elif extra_separator_position == "bottom":
         separator_y = extended_box_y + extended_box_height - (square_size * 0.35)  # 0.35 grid cells from the bottom
-        pygame.draw.line(screen, GRID_LINES, 
+        pygame.draw.line(screen, OUTSIDE_BACKGROUND, 
                          (extended_box_x + 2, separator_y), 
                          (extended_box_x + extended_box_width - 2, separator_y), 2)
 
 def draw_stats_box():
-    """Draws a single unified box containing TIME, SCORE, and LINES on the left side, under the hold box."""
-    global score, lines_cleared, start_time
+    """Draws a single unified box containing TIME, SCORE, LINES, and PIECES on the left side, under the hold box."""
+    global score, lines_cleared, total_pieces_placed, start_time
 
     width, height = screen.get_size()
 
@@ -842,8 +846,8 @@ def draw_stats_box():
     margin_x = (width - grid_width) // 2
     margin_y = (height - grid_height) // 2
 
-    # **Align bottom edge with the extended next queue**
-    extended_box_bottom = margin_y + GRID_HEIGHT - (square_size * 1.1)  # Bottom of extended next queue
+    # **Align bottom edge**
+    extended_box_bottom = margin_y + GRID_HEIGHT
     stats_box_y = margin_y + (square_size * 6.5)  # Start below hold box
     stats_box_x = margin_x - (square_size * 5) - 10  # Left side of grid
     stats_box_width = square_size * 5  # Matches extended next queue width
@@ -862,10 +866,10 @@ def draw_stats_box():
     # Font for text
     font = pygame.font.Font(None, 40)
 
-    # Divide the box into three evenly spaced sections
-    labels = ["TIME:", "SCORE:", "LINES:"]
-    values = [time_display, score, lines_cleared]
-    section_height = stats_box_height / 3  # Divide box into equal thirds
+    # Divide the box into four evenly spaced sections
+    labels = ["TIME:", "SCORE:", "LINES:", "PIECES:"]
+    values = [time_display, score, lines_cleared, total_pieces_placed]
+    section_height = stats_box_height / 4  # Now divided into four sections
 
     for i, (label, value) in enumerate(zip(labels, values)):
         section_y = stats_box_y + (i * section_height)
