@@ -13,7 +13,7 @@ DAS = 150  # Delayed Auto-Shift in milliseconds
 ARR = 75  # Auto Repeat Rate in milliseconds
 SOFT_DROP_DAS = 75  # Delay before repeated soft drops start (in milliseconds)
 SOFT_DROP_ARR = 35  # Time between additional soft drops when held (in milliseconds)
-GRAVITY = 500  # Default fall speed in milliseconds (1000ms = 1 second per row)
+GRAVITY = 500000  # Default fall speed in milliseconds (1000ms = 1 second per row)
 LOCKOUT_OVERRIDE = 2000  # Time in milliseconds before forced lockout
 
 # Track movement state
@@ -541,11 +541,11 @@ def rotate_I_piece(direction, new_rotation):
     elif current_rotation == "L":  # Vertical "L" Position
         # Extract mino positions sorted by row to correctly identify mino indexes
         mino_positions = sorted(current_piece, key=lambda pos: pos[0])  # Sort by row
-        mino_positions.reverse()  # Ensure order matches expected mino indices in state 2
+        mino_positions.reverse()  # Ensure order matches expected mino indices in state "L"
 
         if direction == "L":  # Left Rotation (Aligns Horizontally)
-            pivot_row = mino_positions[2][0]  # Mino 1's row (Pivot)
-            pivot_col = mino_positions[2][1]  # Mino 1's column (Pivot)
+            pivot_row = mino_positions[1][0]  # Mino 1's row (Pivot)
+            pivot_col = mino_positions[1][1]  # Mino 1's column (Pivot)
             new_piece = [
                 (pivot_row, pivot_col - 1),  # Mino 3 (Leftmost)
                 (pivot_row, pivot_col),      # Mino 2 (Pivot)
@@ -554,8 +554,8 @@ def rotate_I_piece(direction, new_rotation):
             ]
 
         else:  # Right Rotation (Aligns Horizontally)
-            pivot_row = mino_positions[1][0]  # Mino 2's row (Pivot)
-            pivot_col = mino_positions[1][1]  # Mino 2's column (Pivot)
+            pivot_row = mino_positions[2][0]  # Mino 2's row (Pivot)
+            pivot_col = mino_positions[2][1]  # Mino 2's column (Pivot)
             new_piece = [
                 (pivot_row, pivot_col - 1),  # Mino 0 (Leftmost)
                 (pivot_row, pivot_col),      # Mino 1 (Pivot)
