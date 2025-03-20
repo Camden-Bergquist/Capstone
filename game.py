@@ -37,7 +37,7 @@ next_queue = []     # Holds the next five pieces to display
 bag_piece_count = 0  # Tracks how many pieces have spawned
 score = 0  # Track player's score
 lines_cleared = 0  # Track number of lines cleared
-start_time = time.time()  # Track game start time
+start_time = None  # Track game start time 
 total_pieces_placed = 0  # Track the number of pieces placed
 b2b = False # Track whether or not the player currently has back-to-back status
 clear_combo = 0 # Track line clear combos for scoring.
@@ -46,12 +46,17 @@ wall_kick_5_used = False # Tracks if the wall-kick used is the fifth and final k
 clear_text = "" # Displays the type of clear most recently achieved (e.g., "Double!")
 clear_text_color = (255, 255, 255) # Sets the base color for the clear text to white, to be changed to gold if a b2b was present.
 clear_text_timer = None # Track clear text timer.
+game_mode = None # Tracks gamemode.
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
 OUTSIDE_BACKGROUND = (90, 90, 90)
 GRID_LINES = (60, 60, 60)
 PIECE_OUTLINE = (0, 0, 0)
+WHITE = (255, 255, 255)
+GRAY = (200, 200, 200)
+DARK_GRAY = (100, 100, 100)
+BLACK = (0, 0, 0)
 
 # Tetrimino colors
 TETRIMINO_COLORS = {
@@ -449,7 +454,12 @@ def clear_lines():
         # Update the grid
         grid = new_grid
 
-        # Increment total cleared lines
+    # Increment or decrement total cleared lines differently based on gamemode.
+    if game_mode == "Sprint" and lines_cleared >= num_cleared:
+        lines_cleared -= num_cleared
+    elif game_mode == "Sprint" and lines_cleared < num_cleared:
+        lines_cleared = 0
+    else:
         lines_cleared += num_cleared
 
     # Award points based on the number of lines cleared (T-spins give points even without lines cleared)
@@ -1196,12 +1206,6 @@ def draw_stats_box():
     clear_text_rect = clear_text_render.get_rect(center=(stats_box_x + stats_box_width // 2, line_y + square_size * 1.5))
     screen.blit(clear_text_render, clear_text_rect)
 
-
-
-
-
-
-
 def draw_grid():
     """Draws only the visible part of the Tetris grid, with a half-cell-high margin at the top and bottom,
        and colors those margins with OUTSIDE_BACKGROUND."""
@@ -1287,9 +1291,58 @@ def draw_grid():
     draw_extended_next_queue(next_box_y, next_box_height)
     pygame.display.flip()
 
+def draw_button(x, y, width, height, text, action=None, mode=None):
+    """Draws a button and handles clicks."""
+    mouse = pygame.mouse.get_pos()
+    click = pygame.mouse.get_pressed()
+
+    button_color = GRAY
+    if x < mouse[0] < x + width and y < mouse[1] < y + height:
+        button_color = DARK_GRAY
+        if click[0] == 1 and action:
+            action(mode)
+
+    pygame.draw.rect(screen, button_color, (x, y, width, height))
+    font = pygame.font.Font(None, 36)
+    text_surf = font.render(text, True, BLACK)
+    text_rect = text_surf.get_rect(center=(x + width // 2, y + height // 2))
+    screen.blit(text_surf, text_rect)
+
+def set_game_mode(mode):
+    """Sets the global game mode, initializes variables differently based on mode, and starts the game."""
+    global game_mode, lines_cleared
+    game_mode = mode
+
+    if mode == "Sprint":
+        lines_cleared = 40
+
+    main()  # Start the game
+
+def start_menu():
+    """Displays the start menu with three buttons."""
+    menu_running = True
+    while menu_running:
+        screen.fill(BLACK)
+
+        font = pygame.font.Font(None, 50)
+        title = font.render("TETRIS", True, WHITE)
+        screen.blit(title, (DEFAULT_WIDTH // 2 - title.get_width() // 2, 100))
+
+        draw_button(300, 200, 200, 50, "Sprint", action=set_game_mode, mode="Sprint")
+        draw_button(300, 300, 200, 50, "Blitz")
+        draw_button(300, 400, 200, 50, "Test/Debug", action=set_game_mode, mode="Test")
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+
+        pygame.display.update()
+
 def main():
-    global move_left_pressed, move_right_pressed, soft_drop_pressed
+    global move_left_pressed, move_right_pressed, soft_drop_pressed, start_time
     running = True
+    start_time = time.time()
 
     while running:
         if game_over:
@@ -1333,4 +1386,4 @@ def main():
     pygame.quit()
 
 if __name__ == "__main__":
-    main()
+    start_menu()
