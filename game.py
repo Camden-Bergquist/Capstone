@@ -543,12 +543,12 @@ def clear_lines():
         handle_clear_text("Perfect Tetris!", has_b2b)
 
     # Point assignment:
-    if not has_b2b: # No b2b
+    if not has_b2b or not b2b: # No b2b
         score += score_awarded
     elif has_b2b and b2b and not unique_b2b: # Non-PC b2b. Must have had b2b and also not broken it with the clear.
         score += (score_awarded * 1.5)
     else: # PC b2b
-        score += unique_b2b
+        score += (score_awarded + unique_b2b)
 
     # Finally, assign bonus points for combo and round score to nearest whole number to avoid floating point shenanigans
     score += (50 * clear_combo)
