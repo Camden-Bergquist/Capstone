@@ -45,6 +45,7 @@ qualified_for_T_spin = False  # Tracks if the current piece is eligible for a T-
 wall_kick_5_used = False # Tracks if the wall-kick used is the fifth and final kick, which results in an auto T-spin detection
 clear_text = "" # Displays the type of clear most recently achieved (e.g., "Double!")
 clear_text_color = (255, 255, 255) # Sets the base color for the clear text to white, to be changed to gold if a b2b was present.
+clear_text_timer = None # Track clear text timer.
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
@@ -390,23 +391,31 @@ def detect_T_spin():
         return False
 
 def handle_clear_text(text, has_b2b):
-    """Sets the global clear_text variable to the given string for one second before clearing it."""
-    global clear_text, b2b, clear_text_color
+    """Sets the global clear_text variable to the given string for two seconds before clearing it.
+    If called again before the timer expires, the timer resets.
+    """
+    global clear_text, b2b, clear_text_color, clear_text_timer
 
     clear_text = text  # Set the text
 
+    # Determine the text color based on B2B status
     if has_b2b and b2b:
-        clear_text_color = (255, 215, 0)
+        clear_text_color = (255, 215, 0)  # Gold for B2B
     else:
-        clear_text_color = (255, 255, 255)
+        clear_text_color = (255, 255, 255)  # White otherwise
 
-    # Create a separate thread to reset clear_text after 1 second
-    def clear_after_delay():
-        time.sleep(2)
-        global clear_text
-        clear_text = ""  # Reset the text
+    # Cancel any existing timer to reset the countdown
+    if clear_text_timer is not None:
+        clear_text_timer.cancel()
 
-    threading.Thread(target=clear_after_delay, daemon=True).start()
+    # Start a new timer to clear the text after 2 seconds
+    clear_text_timer = threading.Timer(2, clear_clear_text)
+    clear_text_timer.start()
+
+def clear_clear_text():
+    """Clears the clear_text after the timer expires."""
+    global clear_text
+    clear_text = ""  # Reset the text
 
 def clear_lines():
     """Checks for full lines, clears them, shifts the above lines down, detects perfect clear, and awards points."""
