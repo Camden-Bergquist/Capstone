@@ -2,6 +2,7 @@ import pygame
 import numpy as np
 import random
 import time
+import threading
 
 # Constants
 DEFAULT_WIDTH, DEFAULT_HEIGHT = 800, 700
@@ -13,7 +14,7 @@ DAS = 150  # Delayed Auto-Shift in milliseconds
 ARR = 75  # Auto Repeat Rate in milliseconds
 SOFT_DROP_DAS = 75  # Delay before repeated soft drops start (in milliseconds)
 SOFT_DROP_ARR = 35  # Time between additional soft drops when held (in milliseconds)
-GRAVITY = 500  # Default fall speed in milliseconds (1000ms = 1 second per row)
+GRAVITY = 1000  # Default fall speed in milliseconds (1000ms = 1 second per row)
 LOCKOUT_OVERRIDE = 2000  # Time in milliseconds before forced lockout
 
 # Tracking variables
@@ -42,6 +43,8 @@ b2b = False # Track whether or not the player currently has back-to-back status
 clear_combo = 0 # Track line clear combos for scoring.
 qualified_for_T_spin = False  # Tracks if the current piece is eligible for a T-spin
 wall_kick_5_used = False # Tracks if the wall-kick used is the fifth and final kick, which results in an auto T-spin detection
+clear_text = "" # Displays the type of clear most recently achieved (e.g., "Double!")
+clear_text_color = (255, 255, 255) # Sets the base color for the clear text to white, to be changed to gold if a b2b was present.
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
@@ -386,6 +389,25 @@ def detect_T_spin():
     else:
         return False
 
+def handle_clear_text(text, has_b2b):
+    """Sets the global clear_text variable to the given string for one second before clearing it."""
+    global clear_text, b2b, clear_text_color
+
+    clear_text = text  # Set the text
+
+    if has_b2b and b2b:
+        clear_text_color = (255, 215, 0)
+    else:
+        clear_text_color = (255, 255, 255)
+
+    # Create a separate thread to reset clear_text after 1 second
+    def clear_after_delay():
+        time.sleep(2)
+        global clear_text
+        clear_text = ""  # Reset the text
+
+    threading.Thread(target=clear_after_delay, daemon=True).start()
+
 def clear_lines():
     """Checks for full lines, clears them, shifts the above lines down, detects perfect clear, and awards points."""
     global grid, lines_cleared, score, b2b, clear_combo
@@ -425,70 +447,86 @@ def clear_lines():
     # No lines cleared:
     if num_cleared == 0 and T_spin == "Mini T-Spin":
         score_awarded = 100 # Mini non-clear T-spin
+        handle_clear_text("Mini T-Spin!", has_b2b)
         # Non-clear mini T-spins don't break b2b, but don't start it either
     elif num_cleared == 0 and T_spin == "T-Spin":
         score_awarded = 400  # Non-clear T-spin
+        handle_clear_text("T-Spin!", has_b2b)
         # Non-clear T-spins don't break b2b, but don't start it either
 
     # Single line clears:
     elif num_cleared == 1 and not perfect_clear and not T_spin:
         score_awarded = 100  # Single
         b2b = False
+        handle_clear_text("Single!", has_b2b)
     elif num_cleared == 1 and not perfect_clear and T_spin == "Mini T-Spin":
         score_awarded = 200 # Mini TSS
         b2b = True
+        handle_clear_text("Mini TSS!", has_b2b)
     elif num_cleared == 1 and not perfect_clear and T_spin == "T-Spin":
         score_awarded = 800 # TSS
         b2b = True
+        handle_clear_text("TSS!", has_b2b)
     elif num_cleared == 1 and perfect_clear:
         score_awarded = 900 # PC Single
         b2b = False
+        handle_clear_text("Perfect Clear!", has_b2b)
     # Not possible to perfect clear with either form of TSS, so no need to handle it
     
     # Double line clears:
     elif num_cleared == 2 and not perfect_clear and not T_spin:
         score_awarded = 300  # Double
         b2b = False
+        handle_clear_text("Double!", has_b2b)
     elif num_cleared == 2 and not perfect_clear and T_spin == "Mini T-Spin":
         score_awarded = 400 # Mini TSD
         b2b = True
+        handle_clear_text("Mini TSD!", has_b2b)
     elif num_cleared == 2 and not perfect_clear and T_spin == "T-Spin":
         score_awarded = 1200 # TSD
         b2b = True
+        handle_clear_text("TSD!", has_b2b)
     elif num_cleared == 2 and perfect_clear:
         score_awarded = 1500  # PC Double 
         b2b = False
+        handle_clear_text("Perfect Clear!", has_b2b)
     # Not possible to perfect clear with either form of TSD, so no need to handle it
 
     # Triple line clears:
     elif num_cleared == 3 and not perfect_clear and not T_spin:
         score_awarded = 500  # Triple
         b2b = False
+        handle_clear_text("Triple!", has_b2b)
     elif num_cleared == 3 and not perfect_clear and T_spin:
         score_awarded = 1600 # TST
         b2b = True
+        handle_clear_text("TST!", has_b2b)
     elif num_cleared == 3 and perfect_clear and not T_spin:
         score_awarded = 2300  # PC Triple
         b2b = False
+        handle_clear_text("Perfect Clear!", has_b2b)
     elif num_cleared == 3 and perfect_clear and T_spin:
         score_awarded = 3400  # PC TST
         b2b = True
         unique_b2b = 800
+        handle_clear_text("Perfect TST!", has_b2b)
     # No such thing as a mini TST, since all four corners are necessarily covered.
 
     # Quadruple line clears (Tetrises):
     elif num_cleared == 4 and not perfect_clear:
         score_awarded = 800  # Tetris
         b2b = True
+        handle_clear_text("Tetris!", has_b2b)
     elif num_cleared == 4 and perfect_clear:
         score_awarded = 2800  # PC Tetris
         b2b = True
         unique_b2b = 1200
+        handle_clear_text("Perfect Tetris!", has_b2b)
 
     # Point assignment:
     if not has_b2b: # No b2b
         score += score_awarded
-    elif has_b2b and not unique_b2b: # Non-PC b2b
+    elif has_b2b and b2b and not unique_b2b: # Non-PC b2b. Must have had b2b and also not broken it with the clear.
         score += (score_awarded * 1.5)
     else: # PC b2b
         score += unique_b2b
@@ -837,6 +875,12 @@ def draw_hold_box():
     """Draws the hold box aligned with the top half-cell margin, with proper sizing."""
     width, height = screen.get_size()
 
+    # Sets color of text to red if hold is currently locked.
+    if hold_used:
+        hold_text_color = (255, 150, 150)
+    else:
+        hold_text_color = (255, 255, 255)
+
     # Calculate square size dynamically
     square_size = min(width // COLS, height // (VISIBLE_ROWS + 1))  # Adjust size dynamically
     grid_width = square_size * COLS
@@ -884,7 +928,7 @@ def draw_hold_box():
 
     # **Ensure the "HOLD" text is the same distance from the box as "NEXT" text**
     font = pygame.font.Font(None, 40)
-    text = font.render("HOLD", True, (255, 255, 255))
+    text = font.render("HOLD", True, hold_text_color)
 
     # **Align text exactly one grid square below the hold box (same as NEXT)**
     text_y = hold_box_y + hold_box_height + square_size  # Matches `draw_next_box()`
@@ -1072,8 +1116,8 @@ def draw_extended_next_queue(next_box_y, next_box_height):
                          (extended_box_x + extended_box_width - 2, separator_y), 2)
 
 def draw_stats_box():
-    """Draws a single unified box containing TIME, SCORE, LINES, and PIECES on the left side, under the hold box."""
-    global score, lines_cleared, total_pieces_placed, start_time
+    """Draws a single unified box containing TIME, SCORE, LINES, PIECES, and an additional clear text message."""
+    global score, lines_cleared, total_pieces_placed, start_time, clear_text, clear_text_color
 
     width, height = screen.get_size()
 
@@ -1086,30 +1130,39 @@ def draw_stats_box():
     margin_x = (width - grid_width) // 2
     margin_y = (height - grid_height) // 2
 
-    # **Align bottom edge**
+    # **Base stats box dimensions**
     extended_box_bottom = margin_y + GRID_HEIGHT
     stats_box_y = margin_y + (square_size * 6.5)  # Start below hold box
     stats_box_x = margin_x - (square_size * 5) - 10  # Left side of grid
     stats_box_width = square_size * 5  # Matches extended next queue width
-    stats_box_height = extended_box_bottom - stats_box_y  # Same bottom alignment
+    stats_box_height = extended_box_bottom - stats_box_y  # Default bottom alignment
 
-    # Draw unified stats box
+    # **Calculate additional height for clear_text**
+    font = pygame.font.Font(None, 40)
+    clear_font = pygame.font.Font(None, 30)
+    clear_text_render = clear_font.render(clear_text, True, clear_text_color)
+    clear_text_height = clear_text_render.get_height() + (square_size * 0.5)  # Extra padding
+
+    # **Extend stats box height for clear_text + one extra grid square**
+    stats_box_height += clear_text_height + square_size  # <--- Extra square added here
+
+    # **Draw extended stats box**
     pygame.draw.rect(screen, GRID_BACKGROUND, (stats_box_x, stats_box_y, stats_box_width, stats_box_height))
     pygame.draw.rect(screen, GRID_LINES, (stats_box_x, stats_box_y, stats_box_width, stats_box_height), 2)
 
-    # Calculate elapsed time in MM:SS format
-    elapsed_time = int(time.time() - start_time)
-    minutes = elapsed_time // 60
-    seconds = elapsed_time % 60
-    time_display = f"{minutes:02}:{seconds:02}"
+    # **Calculate elapsed time in MM:SS.M format**
+    elapsed_time = time.time() - start_time
+    minutes = int(elapsed_time // 60)
+    seconds = int(elapsed_time % 60)
+    milliseconds = int((elapsed_time % 1) * 10)  # Correctly scale to 0-9 range
 
-    # Font for text
-    font = pygame.font.Font(None, 40)
+    # Format as MM:SS.M (single-digit milliseconds)
+    time_display = f"{minutes:02}:{seconds:02}.{milliseconds}"
 
-    # Divide the box into four evenly spaced sections
+    # Divide the box into evenly spaced sections
     labels = ["TIME:", "SCORE:", "LINES:", "PIECES:"]
     values = [time_display, score, lines_cleared, total_pieces_placed]
-    section_height = stats_box_height / 4  # Now divided into four sections
+    section_height = stats_box_height / 5  # Now divided into five sections (including clear_text space)
 
     for i, (label, value) in enumerate(zip(labels, values)):
         section_y = stats_box_y + (i * section_height)
@@ -1125,6 +1178,19 @@ def draw_stats_box():
         # Draw text
         screen.blit(label_render, label_rect)
         screen.blit(value_render, value_rect)
+
+    # **Draw horizontal line below "PIECES"**
+    line_y = stats_box_y + (section_height * 4.1)  # Positioned just below "PIECES"
+    pygame.draw.line(screen, (255, 255, 255), (stats_box_x + 5, line_y), (stats_box_x + stats_box_width - 5, line_y), 2)
+
+    # **Render and draw clear_text below the line**
+    clear_text_rect = clear_text_render.get_rect(center=(stats_box_x + stats_box_width // 2, line_y + square_size * 1.5))
+    screen.blit(clear_text_render, clear_text_rect)
+
+
+
+
+
 
 
 def draw_grid():
