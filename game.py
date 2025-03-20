@@ -1136,7 +1136,7 @@ def draw_extended_next_queue(next_box_y, next_box_height):
 
 def draw_stats_box():
     """Draws a single unified box containing TIME, SCORE, LINES, PIECES, and an additional clear text message."""
-    global score, lines_cleared, total_pieces_placed, start_time, clear_text, clear_text_color
+    global score, lines_cleared, total_pieces_placed, start_time, clear_text, clear_text_color, game_mode
 
     width, height = screen.get_size()
 
@@ -1169,11 +1169,20 @@ def draw_stats_box():
     pygame.draw.rect(screen, GRID_BACKGROUND, (stats_box_x, stats_box_y, stats_box_width, stats_box_height))
     pygame.draw.rect(screen, GRID_LINES, (stats_box_x, stats_box_y, stats_box_width, stats_box_height), 2)
 
-    # **Calculate elapsed time in MM:SS.M format**
-    elapsed_time = time.time() - start_time
-    minutes = int(elapsed_time // 60)
-    seconds = int(elapsed_time % 60)
-    milliseconds = int((elapsed_time % 1) * 10)  # Correctly scale to 0-9 range
+    # Calculate elapsed time in MM:SS.M format based on gamemode:
+    if game_mode == "Blitz":
+        game_duration = 180  # 3 minutes in seconds
+        elapsed_time = time.time() - start_time
+        remaining_time = max(0, game_duration - elapsed_time)  # Prevent negative time
+
+        minutes = int(remaining_time // 60)
+        seconds = int(remaining_time % 60)
+        milliseconds = int((remaining_time % 1) * 10)  # Correctly scale to 0-9 range
+    else:
+        elapsed_time = time.time() - start_time
+        minutes = int(elapsed_time // 60)
+        seconds = int(elapsed_time % 60)
+        milliseconds = int((elapsed_time % 1) * 10)  # Correctly scale to 0-9 range
 
     # Format as MM:SS.M (single-digit milliseconds)
     time_display = f"{minutes:02}:{seconds:02}.{milliseconds}"
@@ -1329,7 +1338,7 @@ def start_menu():
         screen.blit(title, (DEFAULT_WIDTH // 2 - title.get_width() // 2, 100))
 
         draw_button(300, 200, 200, 50, "Sprint", action=set_game_mode, mode="Sprint")
-        draw_button(300, 300, 200, 50, "Blitz")
+        draw_button(300, 300, 200, 50, "Blitz", action=set_game_mode, mode="Blitz")
         draw_button(300, 400, 200, 50, "Test/Debug", action=set_game_mode, mode="Test")
 
         for event in pygame.event.get():
