@@ -41,6 +41,7 @@ total_pieces_placed = 0  # Track the number of pieces placed
 b2b = False # Track whether or not the player currently has back-to-back status
 clear_combo = 0 # Track line clear combos for scoring.
 qualified_for_T_spin = False  # Tracks if the current piece is eligible for a T-spin
+wall_kick_5_used = False # Tracks if the wall-kick used is the fifth and final kick, which results in an auto T-spin detection
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
@@ -148,7 +149,7 @@ def lock_piece():
 
 def move_piece(dx, dy):
     """Attempt to move the current piece by (dx, dy)."""
-    global current_piece, qualified_for_T_spin
+    global current_piece, qualified_for_T_spin, wall_kick_5_used
 
     new_position = [(r + dy, c + dx) for r, c in current_piece]
     
@@ -158,6 +159,7 @@ def move_piece(dx, dy):
         # Disqualify T-spin if the move was a successful left/right shift
         if dx != 0:
             qualified_for_T_spin = False
+            wall_kick_5_used = False
 
         return True
 
@@ -167,7 +169,7 @@ def move_piece(dx, dy):
 def hard_drop():
     """Instantly moves the piece downward until it collides, then locks.
        Awards 2 points for each space the piece moves down."""
-    global current_piece, score, qualified_for_T_spin
+    global current_piece, score, qualified_for_T_spin, wall_kick_5_used
 
     drop_distance = 0  # Track how many spaces the piece moves
 
@@ -177,6 +179,7 @@ def hard_drop():
     # Only disqualify T-spin if the piece actually moved downward
     if drop_distance > 0:
         qualified_for_T_spin = False 
+        wall_kick_5_used = False # Only disqualify if it actually moves
 
     # Award hard drop points (2 points per space moved)
     score += drop_distance * 2
@@ -211,7 +214,9 @@ def refill_bag():
 
 def spawn_piece():
     """Spawns a new piece from the next queue, ensuring the queue remains filled."""
-    global primary_bag, secondary_bag, next_queue, bag_piece_count  # Track piece count
+    global primary_bag, secondary_bag, next_queue, bag_piece_count, wall_kick_5_used
+
+    wall_kick_5_used = False # Reset to False when a new piece is spawned.
 
     # Ensure next_queue has at least 5 pieces
     while len(next_queue) < 5:
@@ -371,13 +376,13 @@ def detect_T_spin():
             grid[pivot_r - 1, pivot_c + 1] != "X"  # Cell is filled
         )
 
-    # 'True' T-Spin.
+    # Return T-Spin state if detected.
     if front_left_filled and front_right_filled and (back_left_filled or back_right_filled):
         return "T-Spin"
-    
+    elif wall_kick_5_used: # Could technically be added to the first conditional above, but would be difficult to read.
+        return "T-Spin"
     elif back_left_filled and back_right_filled and (front_left_filled or front_right_filled):
         return "Mini T-Spin"
-    
     else:
         return False
 
@@ -529,7 +534,7 @@ def handle_movement():
 def handle_soft_drop():
     """Handles DAS and ARR for soft dropping, with proper locking and lockout override.
        Awards 1 point per space a piece is soft dropped."""
-    global soft_drop_das_timer, soft_drop_arr_timer, soft_drop_lock_timer, lockout_override_timer, score, qualified_for_T_spin
+    global soft_drop_das_timer, soft_drop_arr_timer, soft_drop_lock_timer, lockout_override_timer, score, qualified_for_T_spin, wall_kick_5_used
 
     current_time = pygame.time.get_ticks()
 
@@ -539,6 +544,7 @@ def handle_soft_drop():
             if move_piece(0, 1):  # Successfully moved down
                 score += 1  # Award soft drop point
                 qualified_for_T_spin = False  # Only disqualify if it actually moves
+                wall_kick_5_used = False # Only disqualify if it actually moves
             elif is_grounded():  # If grounded, start lock timer
                 if soft_drop_lock_timer == 0:
                     soft_drop_lock_timer = current_time
@@ -550,6 +556,7 @@ def handle_soft_drop():
                 if move_piece(0, 1):  # If successfully moved down
                     score += 1  # Award soft drop point
                     qualified_for_T_spin = False  # Only disqualify if it actually moves
+                    wall_kick_5_used = False # Only disqualify if it actually moves
                 elif is_grounded():
                     if soft_drop_lock_timer == 0:
                         soft_drop_lock_timer = current_time
@@ -607,7 +614,7 @@ def handle_gravity():
 
 def rotate_piece(direction):
     """Rotates the current piece using SRS with wall kicks, handling I-piece separately."""
-    global current_piece, current_piece_type, current_rotation, qualified_for_T_spin
+    global current_piece, current_piece_type, current_rotation, qualified_for_T_spin, wall_kick_5_used
     global gravity_lock_timer, soft_drop_lock_timer
 
     # Rotation states order
@@ -644,18 +651,22 @@ def rotate_piece(direction):
     kick_data = SRS_WALL_KICKS
     kick_tests = kick_data.get((current_rotation, new_rotation), [(0, 0)])
 
-    # Try applying each kick
-    for kick_x, kick_y in kick_tests:
+    wall_kick_5_used = False # Reset to false since a rotation is being attempted.
+
+    # Try applying each kick (track index for final kick detection)
+    for i, (kick_x, kick_y) in enumerate(kick_tests):
         kicked_piece = [(r + kick_y, c + kick_x) for r, c in new_piece]
         if is_valid_position(kicked_piece):  # If no collision, apply rotation
             current_piece = kicked_piece
             current_rotation = new_rotation
-            qualified_for_T_spin = True  # Piece is now eligible for a T-spin
+            qualified_for_T_spin = True
+            wall_kick_5_used = (i == len(kick_tests) - 1) # Set wall_kick_5_used to True only if it's the final wall kick attempt
             gravity_lock_timer = 0  # Reset lock delay
             soft_drop_lock_timer = 0
             return True  # Rotation succeeded
 
     return False  # Rotation failed, piece stays the same
+
 
 def rotate_I_piece(direction, new_rotation):
     """Handles I-piece rotation using correct pivot alignment in SRS."""
