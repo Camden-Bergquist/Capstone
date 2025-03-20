@@ -40,6 +40,7 @@ start_time = time.time()  # Track game start time
 total_pieces_placed = 0  # Track the number of pieces placed
 b2b = False # Track whether or not the player currently has back-to-back status
 clear_combo = 0 # Track line clear combos for scoring.
+qualified_for_T_spin = False  # Tracks if the current piece is eligible for a T-spin
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
@@ -147,29 +148,41 @@ def lock_piece():
 
 def move_piece(dx, dy):
     """Attempt to move the current piece by (dx, dy)."""
-    global current_piece
+    global current_piece, qualified_for_T_spin
+
     new_position = [(r + dy, c + dx) for r, c in current_piece]
+    
     if is_valid_position(new_position):
         current_piece[:] = new_position
+
+        # Disqualify T-spin if the move was a successful left/right shift
+        if dx != 0:
+            qualified_for_T_spin = False
+
         return True
+
     return False
+
 
 def hard_drop():
     """Instantly moves the piece downward until it collides, then locks.
        Awards 2 points for each space the piece moves down."""
-    global current_piece, score
+    global current_piece, score, qualified_for_T_spin
 
     drop_distance = 0  # Track how many spaces the piece moves
 
     while move_piece(0, 1):  # Move down until collision
         drop_distance += 1  # Count the movement steps
 
+    # Only disqualify T-spin if the piece actually moved downward
+    if drop_distance > 0:
+        qualified_for_T_spin = False 
+
     # Award hard drop points (2 points per space moved)
     score += drop_distance * 2
 
     # Lock immediately after reaching the lowest position
     lock_piece()
-
 
 def soft_drop_or_lock():
     """Moves the piece down one step. If it can't move, it locks after 0.5s."""
@@ -265,19 +278,125 @@ def is_grounded():
             return True
     return False
 
+def detect_T_spin():
+    """Determines if the last move was a T-Spin, returning False if not a T piece."""
+    global current_piece_type, current_rotation, grid
+
+    # If the piece is not a T or the last action wasn't a rotation, there is no T-spin.
+    if current_piece_type != "T" or not qualified_for_T_spin:
+        return False
+
+    # Initialize localized variables for corner checks. Front is the direction the T-piece is 'pointing' in, while back is the opposite.
+    front_left_filled = False
+    front_right_filled = False
+    back_right_filled = False
+    back_left_filled = False
+
+    # Identify the pivot position (center of the T piece).
+    pivot_index = PIECE_PIVOTS["T"]
+    pivot_r, pivot_c = current_piece[pivot_index]
+
+    # **Handle corner checking for each rotation state
+    if current_rotation == 0:
+        # **Check front-facing squares**
+        front_left_filled = (
+            pivot_r - 1 >= 0 and pivot_c - 1 >= 0 and grid[pivot_r - 1, pivot_c - 1] != "X"
+        )
+        front_right_filled = (
+            pivot_r - 1 >= 0 and pivot_c + 1 < COLS and grid[pivot_r - 1, pivot_c + 1] != "X"
+        )
+
+        # **Check bottom-facing squares (considering out-of-bounds cases)**
+        back_left_filled = (
+            pivot_r + 1 >= ROWS or  # Back touching grid floor
+            grid[pivot_r + 1, pivot_c - 1] != "X"  # Cell is filled
+        )
+        back_right_filled = (
+            pivot_r + 1 >= ROWS or  # Back touching grid floor
+            grid[pivot_r + 1, pivot_c + 1] != "X"  # Cell is filled
+        )
+
+    elif current_rotation == "R":
+        # **Check front-facing squares**
+        front_left_filled = (
+            pivot_r - 1 >= 0 and pivot_c - 1 >= 0 and grid[pivot_r - 1, pivot_c + 1] != "X"
+        )
+        front_right_filled = (
+            pivot_r - 1 >= 0 and pivot_c + 1 < COLS and grid[pivot_r + 1, pivot_c + 1] != "X"
+        )
+
+        # **Check bottom-facing squares (considering out-of-bounds cases)**
+        back_left_filled = (
+            pivot_c - 1 < 0 or  # Touching left wall
+            grid[pivot_r - 1, pivot_c - 1] != "X"  # Cell is filled
+        )
+        back_right_filled = (
+            pivot_c - 1 < 0 or  # Touching left wall
+            grid[pivot_r + 1, pivot_c - 1] != "X"  # Cell is filled
+        )
+
+    elif current_rotation == 2:
+        # **Check front-facing squares**
+        front_left_filled = (
+            pivot_r - 1 >= 0 and pivot_c - 1 >= 0 and grid[pivot_r + 1, pivot_c + 1] != "X"
+        )
+        front_right_filled = (
+            pivot_r - 1 >= 0 and pivot_c + 1 < COLS and grid[pivot_r + 1, pivot_c - 1] != "X"
+        )
+
+        # Check bottom-facing squares (no out-of-bounds cases for down-facing T-piece)
+        back_left_filled = (
+            grid[pivot_r - 1, pivot_c + 1] != "X"  # Cell is filled
+        )
+        back_right_filled = (
+            grid[pivot_r - 1, pivot_c - 1] != "X"  # Cell is filled
+        )
+
+    elif current_rotation == "L":
+        # **Check front-facing squares**
+        front_left_filled = (
+            pivot_r - 1 >= 0 and pivot_c - 1 >= 0 and grid[pivot_r + 1, pivot_c - 1] != "X"
+        )
+        front_right_filled = (
+            pivot_r - 1 >= 0 and pivot_c + 1 < COLS and grid[pivot_r - 1, pivot_c - 1] != "X"
+        )
+
+        # **Check bottom-facing squares (considering out-of-bounds cases)**
+        back_left_filled = (
+            pivot_c + 1 >= COLS or  # Touching right wall
+            grid[pivot_r + 1, pivot_c + 1] != "X"  # Cell is filled
+        )
+        back_right_filled = (
+            pivot_c + 1 >= COLS or  # Touching right wall
+            grid[pivot_r - 1, pivot_c + 1] != "X"  # Cell is filled
+        )
+
+    # 'True' T-Spin.
+    if front_left_filled and front_right_filled and (back_left_filled or back_right_filled):
+        return "T-Spin"
+    
+    elif back_left_filled and back_right_filled and (front_left_filled or front_right_filled):
+        return "Mini T-Spin"
+    
+    else:
+        return False
+
 def clear_lines():
     """Checks for full lines, clears them, shifts the above lines down, detects perfect clear, and awards points."""
     global grid, lines_cleared, score, b2b, clear_combo
 
-    # Identify full rows
-    full_rows = [r for r in range(ROWS) if all(grid[r, c] != "X" for c in range(COLS))]
-
+    # Initialize local variables:
+    full_rows = [r for r in range(ROWS) if all(grid[r, c] != "X" for c in range(COLS))] # Identify full rows
     num_cleared = len(full_rows)  # Number of lines cleared
+    T_spin = detect_T_spin() # Detect T-Spin (False, "Mini T-Spin", "T-Spin")
+    score_awarded = 0 # Score to be awarded to the player at the end of the function.
+    unique_b2b = False # Identifier for cases when b2b isn't a simple 1.5x score multiplier
+    has_b2b = b2b # Checks whether the player had b2b *before* all the scoring logic changes it. Otherwise, initial 'difficult' clears would award b2b-modified points.
 
     if num_cleared == 0:
         clear_combo = 0
 
-    if num_cleared > 0:
+    elif num_cleared > 0:
         # Remove full rows and insert new empty rows at the top
         new_grid = np.full((ROWS, COLS), "X")  # Start with an empty grid
         new_row_idx = ROWS - 1  # Start from the bottom
@@ -297,40 +416,85 @@ def clear_lines():
         # Increment total cleared lines
         lines_cleared += num_cleared
 
-        # Award points based on the number of lines cleared
-        if num_cleared == 1 and not perfect_clear:
-            score += 100  # Single
-            b2b = False
-        elif num_cleared == 1 and perfect_clear:
-            score += 900 # PC Single
-            b2b = False
-        elif num_cleared == 2 and not perfect_clear:
-            score += 300  # Double
-            b2b = False
-        elif num_cleared == 2 and perfect_clear:
-            score += 1500  # PC Double 
-            b2b = False
-        elif num_cleared == 3 and not perfect_clear:
-            score += 500  # Triple
-            b2b = False
-        elif num_cleared == 3 and perfect_clear:
-            score += 2300  # PC Triple
-            b2b = False
-        elif num_cleared == 4 and not b2b and not perfect_clear:
-            score += 800  # Tetris
-            b2b = True
-        elif num_cleared == 4 and not b2b and perfect_clear:
-            score += 2800  # PC Tetris
-            b2b = True
-        elif num_cleared == 4 and b2b and not perfect_clear:
-            score += 1200  # Back-to-back Tetris
-        elif num_cleared == 4 and b2b and perfect_clear:
-            score += 4000  # PC back-to-back Tetris
+    # Award points based on the number of lines cleared (T-spins give points even without lines cleared)
+    # No lines cleared:
+    if num_cleared == 0 and T_spin == "Mini T-Spin":
+        score_awarded = 100 # Mini non-clear T-spin
+        # Non-clear mini T-spins don't break b2b, but don't start it either
+    elif num_cleared == 0 and T_spin == "T-Spin":
+        score_awarded = 400  # Non-clear T-spin
+        # Non-clear T-spins don't break b2b, but don't start it either
 
-        # Assign bonus points for combo and increment combo counter only *after* giving score
-        score += (50 * clear_combo)
+    # Single line clears:
+    elif num_cleared == 1 and not perfect_clear and not T_spin:
+        score_awarded = 100  # Single
+        b2b = False
+    elif num_cleared == 1 and not perfect_clear and T_spin == "Mini T-Spin":
+        score_awarded = 200 # Mini TSS
+        b2b = True
+    elif num_cleared == 1 and not perfect_clear and T_spin == "T-Spin":
+        score_awarded = 800 # TSS
+        b2b = True
+    elif num_cleared == 1 and perfect_clear:
+        score_awarded = 900 # PC Single
+        b2b = False
+    # Not possible to perfect clear with either form of TSS, so no need to handle it
+    
+    # Double line clears:
+    elif num_cleared == 2 and not perfect_clear and not T_spin:
+        score_awarded = 300  # Double
+        b2b = False
+    elif num_cleared == 2 and not perfect_clear and T_spin == "Mini T-Spin":
+        score_awarded = 400 # Mini TSD
+        b2b = True
+    elif num_cleared == 2 and not perfect_clear and T_spin == "T-Spin":
+        score_awarded = 1200 # TSD
+        b2b = True
+    elif num_cleared == 2 and perfect_clear:
+        score_awarded = 1500  # PC Double 
+        b2b = False
+    # Not possible to perfect clear with either form of TSD, so no need to handle it
+
+    # Triple line clears:
+    elif num_cleared == 3 and not perfect_clear and not T_spin:
+        score_awarded = 500  # Triple
+        b2b = False
+    elif num_cleared == 3 and not perfect_clear and T_spin:
+        score_awarded = 1600 # TST
+        b2b = True
+    elif num_cleared == 3 and perfect_clear and not T_spin:
+        score_awarded = 2300  # PC Triple
+        b2b = False
+    elif num_cleared == 3 and perfect_clear and T_spin:
+        score_awarded = 3400  # PC TST
+        b2b = True
+        unique_b2b = 800
+    # No such thing as a mini TST, since all four corners are necessarily covered.
+
+    # Quadruple line clears (Tetrises):
+    elif num_cleared == 4 and not perfect_clear:
+        score_awarded = 800  # Tetris
+        b2b = True
+    elif num_cleared == 4 and perfect_clear:
+        score_awarded = 2800  # PC Tetris
+        b2b = True
+        unique_b2b = 1200
+
+    # Point assignment:
+    if not has_b2b: # No b2b
+        score += score_awarded
+    elif has_b2b and not unique_b2b: # Non-PC b2b
+        score += (score_awarded * 1.5)
+    else: # PC b2b
+        score += unique_b2b
+
+    # Finally, assign bonus points for combo and round score to nearest whole number to avoid floating point shenanigans
+    score += (50 * clear_combo)
+    score = round(score)
+
+    # Increment combo counter only *after* adding the combo score
+    if num_cleared > 0:
         clear_combo += 1
-
 
 def handle_movement():
     """Handles DAS and ARR for left/right movement and resets lock delay when moving."""
@@ -365,7 +529,7 @@ def handle_movement():
 def handle_soft_drop():
     """Handles DAS and ARR for soft dropping, with proper locking and lockout override.
        Awards 1 point per space a piece is soft dropped."""
-    global soft_drop_das_timer, soft_drop_arr_timer, soft_drop_lock_timer, lockout_override_timer, score
+    global soft_drop_das_timer, soft_drop_arr_timer, soft_drop_lock_timer, lockout_override_timer, score, qualified_for_T_spin
 
     current_time = pygame.time.get_ticks()
 
@@ -374,6 +538,7 @@ def handle_soft_drop():
             soft_drop_das_timer = current_time  # Start DAS timer
             if move_piece(0, 1):  # Successfully moved down
                 score += 1  # Award soft drop point
+                qualified_for_T_spin = False  # Only disqualify if it actually moves
             elif is_grounded():  # If grounded, start lock timer
                 if soft_drop_lock_timer == 0:
                     soft_drop_lock_timer = current_time
@@ -384,6 +549,7 @@ def handle_soft_drop():
             if soft_drop_arr_timer == 0 or current_time - soft_drop_arr_timer >= SOFT_DROP_ARR:
                 if move_piece(0, 1):  # If successfully moved down
                     score += 1  # Award soft drop point
+                    qualified_for_T_spin = False  # Only disqualify if it actually moves
                 elif is_grounded():
                     if soft_drop_lock_timer == 0:
                         soft_drop_lock_timer = current_time
@@ -441,7 +607,7 @@ def handle_gravity():
 
 def rotate_piece(direction):
     """Rotates the current piece using SRS with wall kicks, handling I-piece separately."""
-    global current_piece, current_piece_type, current_rotation
+    global current_piece, current_piece_type, current_rotation, qualified_for_T_spin
     global gravity_lock_timer, soft_drop_lock_timer
 
     # Rotation states order
@@ -484,6 +650,7 @@ def rotate_piece(direction):
         if is_valid_position(kicked_piece):  # If no collision, apply rotation
             current_piece = kicked_piece
             current_rotation = new_rotation
+            qualified_for_T_spin = True  # Piece is now eligible for a T-spin
             gravity_lock_timer = 0  # Reset lock delay
             soft_drop_lock_timer = 0
             return True  # Rotation succeeded
@@ -492,7 +659,7 @@ def rotate_piece(direction):
 
 def rotate_I_piece(direction, new_rotation):
     """Handles I-piece rotation using correct pivot alignment in SRS."""
-    global current_piece, current_rotation
+    global current_piece, current_rotation, qualified_for_T_spin
     global gravity_lock_timer, soft_drop_lock_timer
     
     if current_rotation == 0:  # Horizontal (Facing Upward)
