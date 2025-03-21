@@ -7,7 +7,7 @@ import threading
 # Constants
 DEFAULT_WIDTH, DEFAULT_HEIGHT = 800, 700
 COLS, ROWS = 10, 24  # Play matrix dimensions
-VISIBLE_ROWS = 20 # Play matrix rows visible to the plauyer
+VISIBLE_ROWS = 20 # Play matrix rows visible to the player
 GRID_WIDTH, GRID_HEIGHT = 300, 600
 LOCK_DELAY = 250  # Lock delay in milliseconds
 DAS = 150  # Delayed Auto-Shift in milliseconds
@@ -47,6 +47,10 @@ clear_text = "" # Displays the type of clear most recently achieved (e.g., "Doub
 clear_text_color = (255, 255, 255) # Sets the base color for the clear text to white, to be changed to gold if a b2b was present.
 clear_text_timer = None # Track clear text timer.
 game_mode = None # Tracks gamemode.
+game_over_condition = "Top Out!" # Tracks game over condition.
+advanced_controls = False # Used to modify ARR and DAS to Camden-prefered values.
+
+
 
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
@@ -424,7 +428,7 @@ def clear_clear_text():
 
 def clear_lines():
     """Checks for full lines, clears them, shifts the above lines down, detects perfect clear, and awards points."""
-    global grid, lines_cleared, score, b2b, clear_combo
+    global grid, lines_cleared, score, b2b, clear_combo, game_over_condition, game_over
 
     # Initialize local variables:
     full_rows = [r for r in range(ROWS) if all(grid[r, c] != "X" for c in range(COLS))] # Identify full rows
@@ -455,10 +459,13 @@ def clear_lines():
         grid = new_grid
 
     # Increment or decrement total cleared lines differently based on gamemode.
-    if game_mode == "Sprint" and lines_cleared >= num_cleared:
+    if game_mode == "Sprint" and lines_cleared > num_cleared:
         lines_cleared -= num_cleared
-    elif game_mode == "Sprint" and lines_cleared < num_cleared:
+    elif game_mode == "Sprint" and lines_cleared <= num_cleared:
         lines_cleared = 0
+        game_over_condition = "Clear!"
+        game_over = True
+        game_over_screen()
     else:
         lines_cleared += num_cleared
 
@@ -1136,7 +1143,9 @@ def draw_extended_next_queue(next_box_y, next_box_height):
 
 def draw_stats_box():
     """Draws a single unified box containing TIME, SCORE, LINES, PIECES, and an additional clear text message."""
-    global score, lines_cleared, total_pieces_placed, start_time, clear_text, clear_text_color, game_mode
+    global score, lines_cleared, total_pieces_placed, start_time, clear_text, clear_text_color, game_mode, game_over_condition, game_over
+
+    remaining_time = None # Initialize
 
     width, height = screen.get_size()
 
@@ -1183,6 +1192,11 @@ def draw_stats_box():
         minutes = int(elapsed_time // 60)
         seconds = int(elapsed_time % 60)
         milliseconds = int((elapsed_time % 1) * 10)  # Correctly scale to 0-9 range
+    if remaining_time == 0:
+        game_over_condition = "Time's Up!"
+        game_over = True
+        game_over_screen()
+
 
     # Format as MM:SS.M (single-digit milliseconds)
     time_display = f"{minutes:02}:{seconds:02}.{milliseconds}"
@@ -1309,7 +1323,10 @@ def draw_button(x, y, width, height, text, action=None, mode=None):
     if x < mouse[0] < x + width and y < mouse[1] < y + height:
         button_color = DARK_GRAY
         if click[0] == 1 and action:
-            action(mode)
+            if mode is not None:
+                action(mode)
+            else:
+                action()
 
     pygame.draw.rect(screen, button_color, (x, y, width, height))
     font = pygame.font.Font(None, 36)
@@ -1317,10 +1334,86 @@ def draw_button(x, y, width, height, text, action=None, mode=None):
     text_rect = text_surf.get_rect(center=(x + width // 2, y + height // 2))
     screen.blit(text_surf, text_rect)
 
+def draw_checkbox(x, y, label, checked):
+    """Draws a checkbox with a label. Returns the rect so we can check clicks elsewhere."""
+    box_size = 20
+    font = pygame.font.Font(None, 28)
+
+    checkbox_rect = pygame.Rect(x, y, box_size, box_size)
+    pygame.draw.rect(screen, WHITE, checkbox_rect, 2)
+
+    if checked:
+        pygame.draw.rect(screen, WHITE, (x + 4, y + 4, box_size - 8, box_size - 8))
+
+    label_surface = font.render(label, True, WHITE)
+    screen.blit(label_surface, (x + box_size + 10, y - 2))
+
+    return checkbox_rect  # <-- just return the rectangle for click detection
+
+
+
+def reset_game_state():
+    global grid, move_left_pressed, move_right_pressed, soft_drop_pressed
+    global das_timer, arr_timer, soft_drop_das_timer, soft_drop_arr_timer
+    global soft_drop_lock_timer, gravity_timer, gravity_lock_timer, lockout_override_timer
+    global held_piece, hold_used, primary_bag, secondary_bag, next_queue, bag_piece_count
+    global score, lines_cleared, total_pieces_placed, b2b, clear_combo
+    global qualified_for_T_spin, wall_kick_5_used, clear_text, clear_text_color
+    global clear_text_timer, game_over, game_over_condition
+    global current_piece_type, current_piece, current_rotation
+
+    # Reset grid and movement states
+    grid = np.full((ROWS, COLS), "X")
+    move_left_pressed = move_right_pressed = soft_drop_pressed = False
+    das_timer = arr_timer = soft_drop_das_timer = soft_drop_arr_timer = 0
+    soft_drop_lock_timer = gravity_timer = gravity_lock_timer = lockout_override_timer = 0
+
+    # Reset piece management
+    held_piece = None
+    hold_used = False
+    primary_bag = []
+    secondary_bag = []
+    next_queue = []
+    bag_piece_count = 0
+
+    # Reset score and stats
+    score = 0
+    lines_cleared = 0
+    total_pieces_placed = 0
+    b2b = False
+    clear_combo = 0
+
+    # Reset rotation-related flags
+    qualified_for_T_spin = False
+    wall_kick_5_used = False
+
+    # Reset clear text
+    clear_text = ""
+    clear_text_color = (255, 255, 255)
+    if clear_text_timer is not None:
+        clear_text_timer.cancel()
+    clear_text_timer = None
+
+    # Reset game over flags
+    game_over = False
+    game_over_condition = "Top Out!"
+
+    # Refill the queue before spawning the first piece
+    refill_bag()
+    while len(next_queue) < 5:
+        next_queue.append(primary_bag.pop(0))
+
+    # Re-initialize current piece
+    current_piece_type, current_piece, current_rotation = spawn_piece()
+
+
 def set_game_mode(mode):
     """Sets the global game mode, initializes variables differently based on mode, and starts the game."""
     global game_mode, lines_cleared
+
     game_mode = mode
+
+    reset_game_state()
 
     if mode == "Sprint":
         lines_cleared = 40
@@ -1328,8 +1421,10 @@ def set_game_mode(mode):
     main()  # Start the game
 
 def start_menu():
-    """Displays the start menu with three buttons."""
+    global DAS, ARR, SOFT_DROP_DAS, SOFT_DROP_ARR, advanced_controls
+
     menu_running = True
+
     while menu_running:
         screen.fill(BLACK)
 
@@ -1340,13 +1435,111 @@ def start_menu():
         draw_button(300, 200, 200, 50, "Sprint", action=set_game_mode, mode="Sprint")
         draw_button(300, 300, 200, 50, "Blitz", action=set_game_mode, mode="Blitz")
         draw_button(300, 400, 200, 50, "Test/Debug", action=set_game_mode, mode="Test")
+        draw_button(300, 500, 200, 50, "Quit", action=pygame.quit)
+
+        # Draw checkbox and get the rect to check clicks
+        checkbox_rect = draw_checkbox(296, 600, "Advanced Controls", advanced_controls)
+
+        # Handle input events
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if checkbox_rect.collidepoint(event.pos) and not advanced_controls:
+                    advanced_controls = True
+                    DAS = 150  # Delayed Auto-Shift in milliseconds
+                    ARR = 0  # Auto Repeat Rate in milliseconds
+                    SOFT_DROP_DAS = 70  # Delay before repeated soft drops start (in milliseconds)
+                    SOFT_DROP_ARR = 15  # Time between additional soft drops when held (in milliseconds)
+                    print("Advanced Controls:", advanced_controls)
+                elif checkbox_rect.collidepoint(event.pos) and advanced_controls:
+                    advanced_controls = False
+                    DAS = 150  # Delayed Auto-Shift in milliseconds
+                    ARR = 75  # Auto Repeat Rate in milliseconds
+                    SOFT_DROP_DAS = 75  # Delay before repeated soft drops start (in milliseconds)
+                    SOFT_DROP_ARR = 35  # Time between additional soft drops when held (in milliseconds)
+                    print("Advanced Controls:", advanced_controls)
+
+        pygame.display.update()
+
+
+
+def game_over_screen():
+    global score, lines_cleared, total_pieces_placed, game_mode, game_over_condition, start_time
+
+    font_large = pygame.font.Font(None, 60)
+    font_small = pygame.font.Font(None, 36)
+    running = True
+
+    # Initialize
+    lines_display = None 
+    time_text = None 
+
+    if game_mode != "Blitz":
+        time_text = "Time Elapsed:"
+    else:
+        time_text = "Time Remaining:"
+
+    if game_mode == "Sprint":
+        lines_display = 40 - lines_cleared
+    else:
+        lines_display = lines_cleared
+
+
+    # Calculate elapsed time in MM:SS.M format based on gamemode:
+    if game_mode == "Blitz":
+        game_duration = 180  # 3 minutes in seconds
+        elapsed_time = time.time() - start_time
+        remaining_time = max(0, game_duration - elapsed_time)  # Prevent negative time
+
+        minutes = int(remaining_time // 60)
+        seconds = int(remaining_time % 60)
+        milliseconds = int((remaining_time % 1) * 10)  # Correctly scale to 0-9 range
+    else:
+        elapsed_time = time.time() - start_time
+        minutes = int(elapsed_time // 60)
+        seconds = int(elapsed_time % 60)
+        milliseconds = int((elapsed_time % 1) * 10)  # Correctly scale to 0-9 range
+
+    # Format as MM:SS.M (single-digit milliseconds)
+    time_display = f"{minutes:02}:{seconds:02}.{milliseconds}"
+
+    while running:
+        screen.fill((0, 0, 0))
+
+        # Title / Game over reason
+        title = font_large.render(game_over_condition, True, (255, 255, 255))
+        title_rect = title.get_rect(center=(DEFAULT_WIDTH // 2, 100))
+        screen.blit(title, title_rect)
+
+        # Stats
+        lines = [
+            f"Mode: {game_mode}",
+            f"{time_text} {time_display}",
+            f"Score: {score}",
+            f"Lines Cleared: {lines_display}",
+            f"Pieces Placed: {total_pieces_placed}",
+            f"Pieces Per Second: {round(total_pieces_placed / elapsed_time, 2)}"
+        ]
+
+        for i, line in enumerate(lines):
+            text_surface = font_small.render(line, True, (200, 200, 200))
+            text_rect = text_surface.get_rect(center=(DEFAULT_WIDTH // 2, 180 + i * 40))
+            screen.blit(text_surface, text_rect)
+
+        # Draw buttons
+        draw_button(250, 450, 140, 50, "Main Menu", action=start_menu)
+        draw_button(450, 450, 140, 50, "Quit", action=pygame.quit)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 exit()
 
-        pygame.display.update()
+        pygame.display.flip()
+
 
 def main():
     global move_left_pressed, move_right_pressed, soft_drop_pressed, start_time
@@ -1355,8 +1548,7 @@ def main():
 
     while running:
         if game_over:
-            print("Game Over!")
-            running = False
+            game_over_screen()
 
         handle_movement()  # Handle left/right DAS & ARR
         handle_soft_drop()  # Handle soft drop DAS & ARR
