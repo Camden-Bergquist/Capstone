@@ -4,8 +4,8 @@ import random
 import time
 import threading
 
-class Tetris:
-    def __init__(self):
+class TetrisGame:
+    def __init__(self, game_mode = None):
     # Constants
         self.DEFAULT_WIDTH, self.DEFAULT_HEIGHT = 800, 700
         self.COLS, self.ROWS = 10, 24  # Play matrix dimensions
@@ -48,7 +48,7 @@ class Tetris:
         self.clear_text = "" # Displays the type of clear most recently achieved (e.g., "Double!")
         self.clear_text_color = (255, 255, 255) # Sets the base color for the clear text to white, to be changed to gold if a self.b2b was present.
         self.clear_text_timer = None # Track clear text timer.
-        self.game_mode = None # Tracks gamemode.
+        self.game_mode = game_mode # Tracks gamemode.
         self.game_over_condition = "Top Out!" # Tracks game over condition.
         self.advanced_controls = False # Used to modify self.ARR and self.DAS to Camden-prefered values.
         self.current_piece_type = None
@@ -1367,6 +1367,7 @@ class Tetris:
         self.total_pieces_placed = 0
         self.b2b = False
         self.clear_combo = 0
+        self.start_time = None
 
         # Reset rotation-related flags
         self.qualified_for_T_spin = False
@@ -1521,7 +1522,6 @@ class Tetris:
 
             pygame.display.flip()
 
-
     def main(self):
         running = True
         self.start_time = time.time()
@@ -1566,6 +1566,55 @@ class Tetris:
 
         pygame.quit()
 
+def tick(self, dt):
+    # dt = delta time, or how much virtual time passes in this frame
+
+    self.soft_drop_lock_timer += dt  # Track time before locking after soft drop
+    self.gravity_timer += dt  # Tracks last gravity update
+    self.gravity_lock_timer += dt  # Tracks when the piece should lock due to gravity
+    self.lockout_override_timer += dt  # Track time for lockout override
+
+    self.handle_gravity()
+    self.handle_soft_drop()
+    self.handle_movement()
+
+
+def game_step(self, action_index):
+    """
+    Advances the game by one logical step based on the given action.
+    This version avoids rendering or user input and handles Blitz timing.
+    """
+    if not self.start_time: # Sets new start time if there is none.
+        self.start_time = time.time()
+
+    # Execute the action using a match statement
+    match action_index:
+        case 0:
+            pass  # No-op
+        case 1: # Move left
+            self.move_piece(-1, 0)     
+        case 2: # Move right
+            self.move_piece(1, 0)      
+        case 3: # Rotate left
+            self.rotate_piece("L")     
+        case 4: # Rotate right
+            self.rotate_piece("R")     
+        case 5: # Move down one
+            self.handle_soft_drop(manual=True)  
+        case 6: # Hard drop
+            self.hard_drop() 
+        case 7: # Hold
+            self.hold_piece()
+
+    # Handle automatic game updates like gravity at a tick speed of 10ms
+    self.tick(10)
+
+    # Update game-over condition for Blitz (time expiration)
+    if self.game_mode == "Blitz":
+        elapsed = time.time() - self.start_time
+        if elapsed >= 180:  # 3 minutes
+            self.game_over = True
+
 if __name__ == "__main__":
-    game = Tetris()
+    game = TetrisGame()
     game.start_menu()
