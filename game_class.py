@@ -556,11 +556,10 @@ class Tetris:
         if num_cleared > 0:
             self.clear_combo += 1
 
-    def handle_movement(self):
+    def handle_movement(self, direction = 0):
         """Handles self.DAS and self.ARR for left/right movement and resets lock delay when moving."""
 
         current_time = pygame.time.get_ticks()
-        direction = 0  # Default no movement
 
         if self.move_left_pressed:
             direction = -1  # Move left
@@ -585,52 +584,65 @@ class Tetris:
             self.das_timer = 0  # Reset self.DAS when no key is pressed
             self.arr_timer = 0  # Reset self.ARR
 
-    def handle_soft_drop(self):
-        """Handles self.DAS and self.ARR for soft dropping, with proper locking and lockout override.
-        Awards 1 point per space a piece is soft dropped."""
+    def handle_soft_drop(self, AI = False):
+        """Handles DAS and ARR for soft dropping with proper locking and lockout override.
+        If manual=True, moves the piece down by one row and skips input timing logic.
+        """
 
         current_time = pygame.time.get_ticks()
 
-        if self.soft_drop_pressed:
-            if self.soft_drop_das_timer == 0:
-                self.soft_drop_das_timer = current_time  # Start self.DAS timer
-                if self.move_piece(0, 1):  # Successfully moved down
-                    self.score += 1  # Award soft drop point
-                    self.qualified_for_T_spin = False  # Only disqualify if it actually moves
-                    self.wall_kick_5_used = False # Only disqualify if it actually moves
-                elif self.is_grounded():  # If grounded, start lock timer
-                    if self.soft_drop_lock_timer == 0:
-                        self.soft_drop_lock_timer = current_time
-                    if self.lockout_override_timer == 0:  # Start override timer if not started
-                        self.lockout_override_timer = current_time
-
-            elif current_time - self.soft_drop_das_timer >= self.SOFT_DROP_DAS:
-                if self.soft_drop_arr_timer == 0 or current_time - self.soft_drop_arr_timer >= self.SOFT_DROP_ARR:
-                    if self.move_piece(0, 1):  # If successfully moved down
-                        self.score += 1  # Award soft drop point
-                        self.qualified_for_T_spin = False  # Only disqualify if it actually moves
-                        self.wall_kick_5_used = False # Only disqualify if it actually moves
+        if AI:
+            # Direct one-step drop
+            if self.move_piece(0, 1):
+                self.score += 1
+                self.qualified_for_T_spin = False
+                self.wall_kick_5_used = False
+            elif self.is_grounded():
+                if self.soft_drop_lock_timer == 0:
+                    self.soft_drop_lock_timer = current_time
+                if self.lockout_override_timer == 0:
+                    self.lockout_override_timer = current_time
+        else:
+            # Original key-holding logic
+            if self.soft_drop_pressed:
+                if self.soft_drop_das_timer == 0:
+                    self.soft_drop_das_timer = current_time
+                    if self.move_piece(0, 1):
+                        self.score += 1
+                        self.qualified_for_T_spin = False
+                        self.wall_kick_5_used = False
                     elif self.is_grounded():
                         if self.soft_drop_lock_timer == 0:
                             self.soft_drop_lock_timer = current_time
                         if self.lockout_override_timer == 0:
                             self.lockout_override_timer = current_time
-                    self.soft_drop_arr_timer = current_time  # Reset self.ARR timer
-        else:
-            self.soft_drop_das_timer = 0  # Reset self.DAS
-            self.soft_drop_arr_timer = 0  # Reset self.ARR
-            self.soft_drop_lock_timer = 0  # Reset lock timer when released
 
-        # **Handle Locking**: If the piece is grounded and hasn't moved for self.LOCK_DELAY, lock it.
+                elif current_time - self.soft_drop_das_timer >= self.SOFT_DROP_DAS:
+                    if self.soft_drop_arr_timer == 0 or current_time - self.soft_drop_arr_timer >= self.SOFT_DROP_ARR:
+                        if self.move_piece(0, 1):
+                            self.score += 1
+                            self.qualified_for_T_spin = False
+                            self.wall_kick_5_used = False
+                        elif self.is_grounded():
+                            if self.soft_drop_lock_timer == 0:
+                                self.soft_drop_lock_timer = current_time
+                            if self.lockout_override_timer == 0:
+                                self.lockout_override_timer = current_time
+                        self.soft_drop_arr_timer = current_time
+            else:
+                self.soft_drop_das_timer = 0
+                self.soft_drop_arr_timer = 0
+                self.soft_drop_lock_timer = 0
+
+        # Shared locking behavior (manual or not)
         if self.soft_drop_lock_timer > 0 and current_time - self.soft_drop_lock_timer >= self.LOCK_DELAY and self.is_grounded():
             self.lock_piece()
-            self.soft_drop_lock_timer = 0  # Reset lock timer after locking
-            self.lockout_override_timer = 0  # Reset override timer after locking
+            self.soft_drop_lock_timer = 0
+            self.lockout_override_timer = 0
 
-        # **Force lock if lockout override timer exceeds self.LOCKOUT_OVERRIDE**
         if self.lockout_override_timer > 0 and current_time - self.lockout_override_timer >= self.LOCKOUT_OVERRIDE and self.is_grounded():
             self.lock_piece()
-            self.lockout_override_timer = 0  # Reset override timer after locking
+            self.lockout_override_timer = 0
 
 
     def handle_gravity(self):
@@ -1518,8 +1530,8 @@ class Tetris:
             if self.game_over:
                 self.game_over_screen()
 
-            self.handle_movement()  # Handle left/right self.DAS & self.ARR
-            self.handle_soft_drop()  # Handle soft drop self.DAS & self.ARR
+            self.handle_movement()  # Handle left/right, DAS, and ARR
+            self.handle_soft_drop()  # Handle soft drop, DAS, and ARR
             self.handle_gravity() # Handle gravity
 
             for event in pygame.event.get():
