@@ -5,7 +5,7 @@ import time
 import threading
 
 class TetrisGame:
-    def __init__(self, game_mode = None):
+    def __init__(self, render = True, game_mode = None):
     # Constants
         self.DEFAULT_WIDTH, self.DEFAULT_HEIGHT = 800, 700
         self.COLS, self.ROWS = 10, 24  # Play matrix dimensions
@@ -18,6 +18,7 @@ class TetrisGame:
         self.SOFT_DROP_ARR = 35  # Time between additional soft drops when held (in milliseconds)
         self.GRAVITY = 1000  # Default fall speed in milliseconds (1000ms = 1 second per row)
         self.LOCKOUT_OVERRIDE = 2000  # Time in milliseconds before forced lockout
+        self.RENDER = render # Boolean value for whether or not to render the game.
 
         # Tracking variables
         self.move_left_pressed = False
@@ -50,7 +51,7 @@ class TetrisGame:
         self.clear_text_timer = None # Track clear text timer.
         self.game_mode = game_mode # Tracks gamemode.
         self.game_over_condition = "Top Out!" # Tracks game over condition.
-        self.advanced_controls = False # Used to modify self.ARR and self.DAS to Camden-prefered values.
+        self.advanced_controls = False # Used to modify ARR and DAS to Camden-prefered values.
         self.current_piece_type = None
         self.current_piece = None
         self.current_rotation = None
@@ -127,10 +128,12 @@ class TetrisGame:
         self.current_piece_type, self.current_piece, self.current_rotation = self.spawn_piece()
         self.game_over = False
 
-        # Initialize pygame
-        pygame.init()
-        self.screen = pygame.display.set_mode((self.DEFAULT_WIDTH, self.DEFAULT_HEIGHT), pygame.RESIZABLE)
-        pygame.display.set_caption("Tetris")
+        self.screen = None
+        # Initialize pygame if render is set to True
+        if render:
+            pygame.init()
+            self.screen = pygame.display.set_mode((self.DEFAULT_WIDTH, self.DEFAULT_HEIGHT), pygame.RESIZABLE)
+            pygame.display.set_caption("Tetris")
 
     def is_valid_position(self, piece):
         """Check if a piece's position is valid (inside bounds and not colliding)."""
@@ -166,8 +169,9 @@ class TetrisGame:
             self.game_over = True  # Game over if the new piece cannot be placed
 
         # **Ensure the display updates immediately**
-        self.draw_grid()
-        pygame.display.flip()
+        if self.RENDER:
+            self.draw_grid()
+            pygame.display.flip()
 
     def move_piece(self, dx, dy):
         """Attempt to move the current piece by (dx, dy)."""
@@ -1569,54 +1573,54 @@ class TetrisGame:
 
         pygame.quit()
 
-def tick(self, dt):
-    # dt = delta time, or how much virtual time passes in this frame
+    def tick(self, dt):
+        # dt = delta time, or how much virtual time passes in this frame
 
-    self.soft_drop_lock_timer += dt  # Track time before locking after soft drop
-    self.gravity_timer += dt  # Tracks last gravity update
-    self.gravity_lock_timer += dt  # Tracks when the piece should lock due to gravity
-    self.lockout_override_timer += dt  # Track time for lockout override
+        self.soft_drop_lock_timer += dt  # Track time before locking after soft drop
+        self.gravity_timer += dt  # Tracks last gravity update
+        self.gravity_lock_timer += dt  # Tracks when the piece should lock due to gravity
+        self.lockout_override_timer += dt  # Track time for lockout override
 
-    self.handle_gravity()
-    self.handle_soft_drop()
-    self.handle_movement()
+        self.handle_gravity()
+        self.handle_soft_drop()
+        self.handle_movement()
 
 
-def game_step(self, action_index):
-    """
-    Advances the game by one logical step based on the given action.
-    This version avoids rendering or user input and handles Blitz timing.
-    """
-    if not self.start_time: # Sets new start time if there is none.
-        self.start_time = time.time()
+    def game_step(self, action_index):
+        """
+        Advances the game by one logical step based on the given action.
+        This version avoids rendering or user input and handles Blitz timing.
+        """
+        if not self.start_time: # Sets new start time if there is none.
+            self.start_time = time.time()
 
-    # Execute the action using a match statement
-    match action_index:
-        case 0:
-            pass  # No-op
-        case 1: # Move left
-            self.move_piece(-1, 0)     
-        case 2: # Move right
-            self.move_piece(1, 0)      
-        case 3: # Rotate left
-            self.rotate_piece("L")     
-        case 4: # Rotate right
-            self.rotate_piece("R")     
-        case 5: # Move down one
-            self.handle_soft_drop(manual=True)  
-        case 6: # Hard drop
-            self.hard_drop() 
-        case 7: # Hold
-            self.hold_piece()
+        # Execute the action using a match statement
+        match action_index:
+            case 0:
+                pass  # No-op
+            case 1: # Move left
+                self.move_piece(-1, 0)     
+            case 2: # Move right
+                self.move_piece(1, 0)      
+            case 3: # Rotate left
+                self.rotate_piece("L")     
+            case 4: # Rotate right
+                self.rotate_piece("R")     
+            case 5: # Move down one
+                self.handle_soft_drop(AI=True)  
+            case 6: # Hard drop
+                self.hard_drop() 
+            case 7: # Hold
+                self.hold_piece()
 
-    # Handle automatic game updates like gravity at a tick speed of 10ms
-    self.tick(10)
+        # Handle automatic game updates like gravity at a tick speed of 10ms
+        self.tick(10)
 
-    # Update game-over condition for Blitz (time expiration)
-    if self.game_mode == "Blitz":
-        elapsed = time.time() - self.start_time
-        if elapsed >= 180:  # 3 minutes
-            self.game_over = True
+        # Update game-over condition for Blitz (time expiration)
+        if self.game_mode == "Blitz":
+            elapsed = time.time() - self.start_time
+            if elapsed >= 180:  # 3 minutes
+                self.game_over = True
 
 if __name__ == "__main__":
     game = TetrisGame()
