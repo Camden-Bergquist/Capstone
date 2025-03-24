@@ -52,9 +52,17 @@ class TetrisEnv(gym.Env):
 
         elif self.mode == "Sprint":
             if done:
-                reward = -self.game.total_pieces_placed  # Fewer = better
+                if self.game.lines_cleared == 0:
+                    # Agent completed the challenge (cleared all 40 lines)
+                    reward = -self.game.total_pieces_placed  # Fewer pieces = better
+                else:
+                    # Agent failed to complete (top-out loss). The maximum theoretical number of pieces placed in a 40-line sprint
+                    # is ~226. The reward is set to 230 (a few-point buffer) minus the lines_cleared value (40 for none, 1 for 39).
+                    # This means that a loss is always more punishing than the theoretically worst win, but that the AI is still
+                    # Rewarded along the way for clearing lines so that it eventually (hopefully) starts winning.
+                    reward = 230 - self.game.lines_cleared
             else:
-                reward = 0  # No reward until finished
+                reward = 0  # No intermediate reward
 
         else:
             raise ValueError("Error: Mode not Blitz or Sprint.")
