@@ -1363,11 +1363,14 @@ class TetrisGame:
 
         # Reset self.score and stats
         self.score = 0
-        self.lines_cleared = 0
         self.total_pieces_placed = 0
         self.b2b = False
         self.clear_combo = 0
         self.start_time = None
+        if self.game_mode == "Sprint":
+            self.lines_cleared = 40
+        else:
+            self.lines_cleared = 0
 
         # Reset rotation-related flags
         self.qualified_for_T_spin = False
