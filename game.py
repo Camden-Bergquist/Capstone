@@ -50,8 +50,6 @@ game_mode = None # Tracks gamemode.
 game_over_condition = "Top Out!" # Tracks game over condition.
 advanced_controls = False # Used to modify ARR and DAS to Camden-prefered values.
 
-
-
 # Colors
 GRID_BACKGROUND = (0, 0, 0)
 OUTSIDE_BACKGROUND = (90, 90, 90)
