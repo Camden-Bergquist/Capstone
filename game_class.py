@@ -16,9 +16,10 @@ class TetrisGame:
         self.ARR = 75  # Auto Repeat Rate in milliseconds
         self.SOFT_DROP_DAS = 75  # Delay before repeated soft drops start (in milliseconds)
         self.SOFT_DROP_ARR = 35  # Time between additional soft drops when held (in milliseconds)
-        self.GRAVITY = 1000  # Default fall speed in milliseconds (1000ms = 1 second per row)
+        self.GRAVITY = 100  # Default fall speed in milliseconds (1000ms = 1 second per row)
         self.LOCKOUT_OVERRIDE = 2000  # Time in milliseconds before forced lockout
         self.RENDER = render # Boolean value for whether or not to render the game.
+        self.TICK_BASED = False # Gets set to True if tick() is called.
 
         # Tracking variables
         self.move_left_pressed = False
@@ -55,6 +56,7 @@ class TetrisGame:
         self.current_piece_type = None
         self.current_piece = None
         self.current_rotation = None
+        self.last_move_success = True # Tracker for AI training
 
         # Colors
         self.BLACK = (0, 0, 0)
@@ -186,8 +188,10 @@ class TetrisGame:
                 self.qualified_for_T_spin = False
                 self.wall_kick_5_used = False
 
+            self.last_move_success = True
             return True
 
+        self.last_move_success = False
         return False
 
 
@@ -652,33 +656,62 @@ class TetrisGame:
     def handle_gravity(self):
         """Handles automatic piece falling at self.GRAVITY intervals and triggers lockout if needed."""
 
-        current_time = pygame.time.get_ticks()
+        if not self.TICK_BASED:
 
-        # Apply gravity
-        if current_time - self.gravity_timer >= self.GRAVITY:
-            if not self.move_piece(0, 1):
-                if self.is_grounded():  # Only start lock timer if grounded
-                    if self.gravity_lock_timer == 0:
-                        self.gravity_lock_timer = current_time
-                    
-                    if self.lockout_override_timer == 0:  # Start override timer if not started
-                        self.lockout_override_timer = current_time
-            else:
-                self.gravity_lock_timer = 0  # Reset lock timer if the piece moves down
-                self.lockout_override_timer = 0  # Reset override timer on downward movement
+            current_time = pygame.time.get_ticks()
 
-            self.gravity_timer = current_time  # Reset gravity timer
+            # Apply gravity
+            if current_time - self.gravity_timer >= self.GRAVITY:
+                if not self.move_piece(0, 1):
+                    if self.is_grounded():  # Only start lock timer if grounded
+                        if self.gravity_lock_timer == 0:
+                            self.gravity_lock_timer = current_time
+                        
+                        if self.lockout_override_timer == 0:  # Start override timer if not started
+                            self.lockout_override_timer = current_time
+                else:
+                    self.gravity_lock_timer = 0  # Reset lock timer if the piece moves down
+                    self.lockout_override_timer = 0  # Reset override timer on downward movement
 
-        # **Lock the piece if grounded and unable to move for self.LOCK_DELAY**
-        if self.gravity_lock_timer > 0 and current_time - self.gravity_lock_timer >= self.LOCK_DELAY and self.is_grounded():
-            self.lock_piece()
-            self.gravity_lock_timer = 0  # Reset lock timer after locking
-            self.lockout_override_timer = 0  # Reset override timer after locking
+                self.gravity_timer = current_time  # Reset gravity timer
 
-        # **Lock piece if override timer exceeds self.LOCKOUT_OVERRIDE**
-        if self.lockout_override_timer > 0 and current_time - self.lockout_override_timer >= self.LOCKOUT_OVERRIDE and self.is_grounded():
-            self.lock_piece()
-            self.lockout_override_timer = 0  # Reset override timer after locking
+            # **Lock the piece if grounded and unable to move for self.LOCK_DELAY**
+            if self.gravity_lock_timer > 0 and current_time - self.gravity_lock_timer >= self.LOCK_DELAY and self.is_grounded():
+                self.lock_piece()
+                self.gravity_lock_timer = 0  # Reset lock timer after locking
+                self.lockout_override_timer = 0  # Reset override timer after locking
+
+            # **Lock piece if override timer exceeds self.LOCKOUT_OVERRIDE**
+            if self.lockout_override_timer > 0 and current_time - self.lockout_override_timer >= self.LOCKOUT_OVERRIDE and self.is_grounded():
+                self.lock_piece()
+                self.lockout_override_timer = 0  # Reset override timer after locking
+
+        else:
+            # Apply gravity
+            if self.gravity_timer >= self.GRAVITY:
+                if not self.move_piece(0, 1):
+                    if self.is_grounded():  # Only start lock timer if grounded
+                        if self.gravity_lock_timer == 0:
+                            self.gravity_lock_timer = self.gravity_timer
+
+                        if self.lockout_override_timer == 0:
+                            self.lockout_override_timer = self.gravity_timer
+                else:
+                    self.gravity_lock_timer = 0
+                    self.lockout_override_timer = 0
+
+                self.gravity_timer = 0  # Reset gravity accumulation
+
+            # Lock the piece if grounded and gravity lock delay exceeded
+            if self.gravity_lock_timer > 0 and self.gravity_lock_timer >= self.LOCK_DELAY and self.is_grounded():
+                self.lock_piece()
+                self.gravity_lock_timer = 0
+                self.lockout_override_timer = 0
+
+            # Lock the piece if override delay exceeded
+            if self.lockout_override_timer > 0 and self.lockout_override_timer >= self.LOCKOUT_OVERRIDE and self.is_grounded():
+                self.lock_piece()
+                self.lockout_override_timer = 0
 
     def rotate_piece(self, direction):
         """Rotates the current piece using SRS with wall kicks, handling I-piece separately."""
@@ -896,6 +929,262 @@ class TetrisGame:
             ghost_piece = [(r + 1, c) for r, c in ghost_piece]
 
         return ghost_piece
+    
+    def get_all_viable_hard_drops(self):
+        """Returns a list of every possible resulting grid for a given piece for the AI to choose from."""
+        original_orientation = np.copy(self.current_piece) # Preserve original piece in case of wall-kick shenanigans.
+        viable_drops = {} # To be appended to before returning
+        active_piece = list(self.current_piece)
+        rotations = [0, "L", 2, "R"] # Looping variable
+        checks = {
+            0 : ["I", "J", "L", "O", "S", "T", "Z"],
+            "L" : ["I", "J", "L", "S", "T", "Z"], # No duplicate O-piece checks
+            2 : ["J", "L", "T"], # No duplicate I-/S-/T-piece checks
+            "R" : ["J", "L", "T"] # These three have four distinct rotational states.
+        }
+            
+        for rotation in rotations:
+
+            if self.current_piece_type in checks[rotation]:
+
+                # One space to the left
+                if self.is_valid_position([(r, c - 1) for r, c in active_piece]):
+                    shifted_piece = [(r, c - 1) for r, c in active_piece]
+
+                    # Simulate the hard drop
+                    dropped_piece = list(shifted_piece)
+                    while True:
+                        next_pos = [(r + 1, c) for r, c in dropped_piece]
+                        if self.is_valid_position(next_pos):
+                            dropped_piece = next_pos
+                        else:
+                            break
+
+                    # Fill the piece into a copy of the grid
+                    grid_copy = np.copy(self.grid)
+                    for r, c in dropped_piece:
+                        if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                            grid_copy[r, c] = self.current_piece_type
+
+                    # Save the result
+                    viable_drops[(-1, rotation)] = grid_copy
+
+                    # This feels like a war crime but the nested if statements make sense here.
+                    # Two spaces to the left
+                    if self.is_valid_position([(r, c - 2) for r, c in active_piece]):
+                        shifted_piece = [(r, c - 2) for r, c in active_piece]
+
+                        # Simulate the hard drop
+                        dropped_piece = list(shifted_piece)
+                        while True:
+                            next_pos = [(r + 1, c) for r, c in dropped_piece]
+                            if self.is_valid_position(next_pos):
+                                dropped_piece = next_pos
+                            else:
+                                break
+
+                        # Fill the piece into a copy of the grid
+                        grid_copy = np.copy(self.grid)
+                        for r, c in dropped_piece:
+                            if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                grid_copy[r, c] = self.current_piece_type
+
+                        # Save the result
+                        viable_drops[(-2, rotation)] = grid_copy
+
+                        # Three spaces to the left
+                        if self.is_valid_position([(r, c - 3) for r, c in active_piece]):
+                            shifted_piece = [(r, c - 3) for r, c in active_piece]
+
+                            # Simulate the hard drop
+                            dropped_piece = list(shifted_piece)
+                            while True:
+                                next_pos = [(r + 1, c) for r, c in dropped_piece]
+                                if self.is_valid_position(next_pos):
+                                    dropped_piece = next_pos
+                                else:
+                                    break
+
+                            # Fill the piece into a copy of the grid
+                            grid_copy = np.copy(self.grid)
+                            for r, c in dropped_piece:
+                                if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                    grid_copy[r, c] = self.current_piece_type
+
+                            # Save the result
+                            viable_drops[(-3, rotation)] = grid_copy
+
+                            # Four spaces to the left
+                            if self.is_valid_position([(r, c - 4) for r, c in active_piece]):
+                                shifted_piece = [(r, c - 4) for r, c in active_piece]
+
+                                # Simulate the hard drop
+                                dropped_piece = list(shifted_piece)
+                                while True:
+                                    next_pos = [(r + 1, c) for r, c in dropped_piece]
+                                    if self.is_valid_position(next_pos):
+                                        dropped_piece = next_pos
+                                    else:
+                                        break
+
+                                # Fill the piece into a copy of the grid
+                                grid_copy = np.copy(self.grid)
+                                for r, c in dropped_piece:
+                                    if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                        grid_copy[r, c] = self.current_piece_type
+
+                                # Save the result
+                                viable_drops[(-4, rotation)] = grid_copy
+
+                # One space to the right
+                if self.is_valid_position([(r, c + 1) for r, c in active_piece]):
+                    shifted_piece = [(r, c + 1) for r, c in active_piece]
+
+                    # Simulate the hard drop
+                    dropped_piece = list(shifted_piece)
+                    while True:
+                        next_pos = [(r + 1, c) for r, c in dropped_piece]
+                        if self.is_valid_position(next_pos):
+                            dropped_piece = next_pos
+                        else:
+                            break
+
+                    # Fill the piece into a copy of the grid
+                    grid_copy = np.copy(self.grid)
+                    for r, c in dropped_piece:
+                        if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                            grid_copy[r, c] = self.current_piece_type
+
+                    # Save the result
+                    viable_drops[(1, rotation)] = grid_copy
+
+                    # Two spaces to the right
+                    if self.is_valid_position([(r, c + 2) for r, c in active_piece]):
+                        shifted_piece = [(r, c + 2) for r, c in active_piece]
+
+                        # Simulate the hard drop
+                        dropped_piece = list(shifted_piece)
+                        while True:
+                            next_pos = [(r + 1, c) for r, c in dropped_piece]
+                            if self.is_valid_position(next_pos):
+                                dropped_piece = next_pos
+                            else:
+                                break
+
+                        # Fill the piece into a copy of the grid
+                        grid_copy = np.copy(self.grid)
+                        for r, c in dropped_piece:
+                            if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                grid_copy[r, c] = self.current_piece_type
+
+                        # Save the result
+                        viable_drops[(2, rotation)] = grid_copy
+
+                        # Three spaces to the right
+                        if self.is_valid_position([(r, c + 3) for r, c in active_piece]):
+                            shifted_piece = [(r, c + 3) for r, c in active_piece]
+
+                            # Simulate the hard drop
+                            dropped_piece = list(shifted_piece)
+                            while True:
+                                next_pos = [(r + 1, c) for r, c in dropped_piece]
+                                if self.is_valid_position(next_pos):
+                                    dropped_piece = next_pos
+                                else:
+                                    break
+
+                            # Fill the piece into a copy of the grid
+                            grid_copy = np.copy(self.grid)
+                            for r, c in dropped_piece:
+                                if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                    grid_copy[r, c] = self.current_piece_type
+
+                            # Save the result
+                            viable_drops[(3, rotation)] = grid_copy
+
+                            # Four spaces to the right
+                            if self.is_valid_position([(r, c + 4) for r, c in active_piece]):
+                                shifted_piece = [(r, c + 4) for r, c in active_piece]
+
+                                # Simulate the hard drop
+                                dropped_piece = list(shifted_piece)
+                                while True:
+                                    next_pos = [(r + 1, c) for r, c in dropped_piece]
+                                    if self.is_valid_position(next_pos):
+                                        dropped_piece = next_pos
+                                    else:
+                                        break
+
+                                # Fill the piece into a copy of the grid
+                                grid_copy = np.copy(self.grid)
+                                for r, c in dropped_piece:
+                                    if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                        grid_copy[r, c] = self.current_piece_type
+
+                                # Save the result
+                                viable_drops[(4, rotation)] = grid_copy
+
+                                # Five spaces to the right
+                                if self.is_valid_position([(r, c + 5) for r, c in active_piece]):
+                                    shifted_piece = [(r, c + 5) for r, c in active_piece]
+
+                                    # Simulate the hard drop
+                                    dropped_piece = list(shifted_piece)
+                                    while True:
+                                        next_pos = [(r + 1, c) for r, c in dropped_piece]
+                                        if self.is_valid_position(next_pos):
+                                            dropped_piece = next_pos
+                                        else:
+                                            break
+
+                                    # Fill the piece into a copy of the grid
+                                    grid_copy = np.copy(self.grid)
+                                    for r, c in dropped_piece:
+                                        if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                            grid_copy[r, c] = self.current_piece_type
+
+                                    # Save the result
+                                    viable_drops[(5, rotation)] = grid_copy
+
+                # Simulate the hard drop in place (necessarily viable so no if statement):
+                dropped_piece = list(active_piece)
+                while True:
+                    next_pos = [(r + 1, c) for r, c in dropped_piece]
+                    if self.is_valid_position(next_pos):
+                        dropped_piece = next_pos
+                    else:
+                        break
+
+                # Fill the piece into a copy of the grid
+                grid_copy = np.copy(self.grid)
+                for r, c in dropped_piece:
+                    if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                        grid_copy[r, c] = self.current_piece_type
+
+                # Save the result
+                viable_drops[(0, rotation)] = grid_copy
+
+                # Rotate piece before iterating (or back to original iteration in case of the final loop).
+                self.rotate_piece("L")
+
+
+                active_piece = list(self.current_piece) # Re-initialize at new rotation
+
+        # Reset to original orientation
+        self.current_piece = original_orientation
+
+        # Add the current grid into the dict of choices to represent the hold action (if it's available)
+        if not self.hold_used:
+            viable_drops[("Hold", 0)] = self.grid
+
+        return viable_drops
+
+
+
+
+
+
+
 
     def draw_hold_box(self):
         """Draws the hold box aligned with the top half-cell margin, with proper sizing."""
@@ -1576,6 +1865,11 @@ class TetrisGame:
     def tick(self, dt):
         # dt = delta time, or how much virtual time passes in this frame
 
+        self.TICK_BASED = True
+
+        if not self.start_time: # Sets new start time if there is none.
+            self.start_time = time.time()
+
         self.soft_drop_lock_timer += dt  # Track time before locking after soft drop
         self.gravity_timer += dt  # Tracks last gravity update
         self.gravity_lock_timer += dt  # Tracks when the piece should lock due to gravity
@@ -1585,6 +1879,10 @@ class TetrisGame:
         self.handle_soft_drop()
         self.handle_movement()
 
+        if self.RENDER:
+            pygame.event.pump()
+            self.draw_grid()
+            
 
     def game_step(self, action_index):
         """
