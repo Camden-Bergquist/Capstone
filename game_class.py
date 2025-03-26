@@ -56,7 +56,9 @@ class TetrisGame:
         self.current_piece_type = None
         self.current_piece = None
         self.current_rotation = None
-        self.last_move_success = True # Tracker for AI training
+        self.lock_reward = 0 # Counts the number of occupied cells in the row each mino of a piece occupies, and then returns it for AI reward.
+        self.flat_placement = False # Set to true if none of the spaces immediately under a piece are empty. For AI reward.
+        self.height_gap = False # Set to true if the bottom-most space a piece occupies is 8 or more spaces above the next-highest filled grid space.
 
         # Colors
         self.BLACK = (0, 0, 0)
@@ -154,6 +156,54 @@ class TetrisGame:
             if r >= 0:
                 self.grid[r, c] = self.current_piece_type  
 
+        # Identify occupied rows
+        occupied_rows = set()
+        for r, _ in self.current_piece:
+            if r >= 0:
+                occupied_rows.add(r)
+        
+        # Update lock reward
+        self.lock_reward = 0
+        for row in occupied_rows:
+            self.lock_reward += np.count_nonzero(self.grid[row] != "X")
+
+        # Debug print for lock reward
+        # print(f"Rows occupied: {occupied_rows}. Lock Reward Factor: {self.lock_reward}.")
+
+        self.flat_placement = False # Set to False for new piece.
+        flat = True # Helper necessary for loop logic; not redundant for once.
+
+        for r, c in self.current_piece:
+            below_r = r + 1
+            if below_r >= self.ROWS:
+                continue  # On floor = flat
+            if self.grid[below_r, c] == "X":
+                flat = False
+                break  # Not flat if any cell is unsupported
+        self.flat_placement = flat
+
+        # Check for height gap 
+        self.height_gap = False  # Default to False
+
+        # Get the lowest row the current piece occupies
+        piece_lowest_row = max(r for r, _ in self.current_piece if r >= 0)
+
+        # Get the lowest occupied row in the grid
+        occupied_cells = np.argwhere(self.grid != "X")
+        if len(occupied_cells) > 0:
+            grid_lowest_row = max(r for r, _ in occupied_cells)
+
+            # Debug Print
+            # print(f"Grid Low: {grid_lowest_row}. Piece Low: {piece_lowest_row}. Total Gap: {grid_lowest_row - piece_lowest_row}")
+
+            # Compare
+            if grid_lowest_row - piece_lowest_row >= 8:
+                self.height_gap = True
+        else:
+            # If the grid is entirely empty below the piece, treat as no gap
+            self.height_gap = False
+
+
         # **Check for and clear full lines**
         self.clear_lines()
 
@@ -174,6 +224,7 @@ class TetrisGame:
         if self.RENDER:
             self.draw_grid()
             pygame.display.flip()
+
 
     def move_piece(self, dx, dy):
         """Attempt to move the current piece by (dx, dy)."""
@@ -441,6 +492,8 @@ class TetrisGame:
             self.clear_combo = 0
 
         elif num_cleared > 0:
+            # Debug print statement:
+            # print("One or more lines has been cleared!")
             # Remove full rows and insert new empty rows at the top
             new_grid = np.full((self.ROWS, self.COLS), "X")  # Start with an empty self.grid
             new_row_idx = self.ROWS - 1  # Start from the bottom
@@ -462,6 +515,7 @@ class TetrisGame:
             self.lines_cleared -= num_cleared
         elif self.game_mode == "Sprint" and self.lines_cleared <= num_cleared:
             self.lines_cleared = 0
+            self.total_pieces_placed += 1
             self.game_over_condition = "Clear!"
             self.game_over = True
             self.game_over_screen()
@@ -472,11 +526,11 @@ class TetrisGame:
         # No lines cleared:
         if num_cleared == 0 and T_spin == "Mini T-Spin":
             score_awarded = 100 # Mini non-clear T-spin
-            self.handle_clear_text("Mini T-Spin!", has_b2b)
+            # self.handle_clear_text("Mini T-Spin!", has_b2b)
             # Non-clear mini T-spins don't break self.b2b, but don't start it either
         elif num_cleared == 0 and T_spin == "T-Spin":
             score_awarded = 400  # Non-clear T-spin
-            self.handle_clear_text("T-Spin!", has_b2b)
+            # self.handle_clear_text("T-Spin!", has_b2b)
             # Non-clear T-spins don't break self.b2b, but don't start it either
 
         # Single line clears:
@@ -930,10 +984,115 @@ class TetrisGame:
 
         return ghost_piece
     
-    def get_all_viable_hard_drops(self):
+    def aggregate_height(self, grid=None):
+        """
+        Computes the aggregate height of the given grid.
+        If no grid is provided, uses self.grid.
+        """
+        if grid is None:
+            grid = self.grid
+
+        height_sum = 0
+        for col in range(self.COLS):
+            for row in range(self.ROWS):
+                if grid[row, col] != "X":
+                    height_sum += self.ROWS - row
+                    break  # Only count the height of the first filled cell in this column
+
+        return height_sum
+    
+    def check_complete_lines(self, grid=None):
+        """
+        Returns the number of complete lines in the grid.
+        A line is complete if it contains no "X" values.
+        """
+        if grid is None:
+            grid = self.grid
+
+        complete_lines = 0
+        for row in grid:
+            if "X" not in row:
+                complete_lines += 1
+
+        return complete_lines
+
+    def count_holes(self, grid=None):
+        """
+        Counts the number of holes in the grid.
+        A hole is an empty cell ("X") that has at least one filled cell above it in the same column.
+        """
+        if grid is None:
+            grid = self.grid
+
+        holes = 0
+        for col in range(self.COLS):
+            block_found = False
+            for row in range(self.ROWS):
+                if grid[row, col] != "X":
+                    block_found = True  # Start counting holes only after first block is found
+                elif block_found:
+                    holes += 1
+
+        return holes
+
+    def calculate_bumpiness(self, grid=None):
+        """
+        Calculates the bumpiness of the grid.
+        Bumpiness is the sum of the absolute differences in heights between adjacent columns.
+        """
+        if grid is None:
+            grid = self.grid
+
+        # First, calculate heights for each column
+        heights = []
+        for col in range(self.COLS):
+            col_height = 0
+            for row in range(self.ROWS):
+                if grid[row, col] != "X":
+                    col_height = self.ROWS - row
+                    break
+            heights.append(col_height)
+
+        # Now calculate bumpiness
+        bumpiness = 0
+        for i in range(self.COLS - 1):
+            bumpiness += abs(heights[i] - heights[i + 1])
+
+        return bumpiness
+
+    def evaluate_heuristics(self, grid, weights):
+        """
+        Compute the weighted score of a grid based on four heuristics.
+        
+        Parameters:
+            grid (np.ndarray): The Tetris grid to evaluate.
+            weights (tuple or list of 4 floats): The weights (a, b, c, d) for
+                aggregate height, complete lines, holes, and bumpiness.
+        
+        Returns:
+            float: The total weighted score for the grid.
+        """
+        a, b, c, d = weights
+
+        agg_height = self.aggregate_height(grid)
+        completed = self.check_complete_lines(grid)
+        holes = self.count_holes(grid)
+        bumpiness = self.calculate_bumpiness(grid)
+
+        score = (
+            a * agg_height +
+            b * completed +
+            c * holes +
+            d * bumpiness
+        )
+
+        return score
+
+    def get_all_viable_hard_drops(self, weights = None):
         """Returns a list of every possible resulting grid for a given piece for the AI to choose from."""
         original_orientation = np.copy(self.current_piece) # Preserve original piece in case of wall-kick shenanigans.
         viable_drops = {} # To be appended to before returning
+        drop_heuristics = {} # to be appended to before returning
         active_piece = list(self.current_piece)
         rotations = [0, "L", 2, "R"] # Looping variable
         checks = {
@@ -942,6 +1101,8 @@ class TetrisGame:
             2 : ["J", "L", "T"], # No duplicate I-/S-/T-piece checks
             "R" : ["J", "L", "T"] # These three have four distinct rotational states.
         }
+
+        weights = weights if weights is not None else (1, 1, 1, 1)
             
         for rotation in rotations:
 
@@ -968,6 +1129,7 @@ class TetrisGame:
 
                     # Save the result
                     viable_drops[(-1, rotation)] = grid_copy
+                    drop_heuristics[(-1, rotation)] = self.evaluate_heuristics(grid_copy, weights)
 
                     # This feels like a war crime but the nested if statements make sense here.
                     # Two spaces to the left
@@ -991,6 +1153,7 @@ class TetrisGame:
 
                         # Save the result
                         viable_drops[(-2, rotation)] = grid_copy
+                        drop_heuristics[(-2, rotation)] = self.evaluate_heuristics(grid_copy, weights)
 
                         # Three spaces to the left
                         if self.is_valid_position([(r, c - 3) for r, c in active_piece]):
@@ -1013,6 +1176,7 @@ class TetrisGame:
 
                             # Save the result
                             viable_drops[(-3, rotation)] = grid_copy
+                            drop_heuristics[(-3, rotation)] = self.evaluate_heuristics(grid_copy, weights)
 
                             # Four spaces to the left
                             if self.is_valid_position([(r, c - 4) for r, c in active_piece]):
@@ -1035,6 +1199,7 @@ class TetrisGame:
 
                                 # Save the result
                                 viable_drops[(-4, rotation)] = grid_copy
+                                drop_heuristics[(-4, rotation)] = self.evaluate_heuristics(grid_copy, weights)
 
                 # One space to the right
                 if self.is_valid_position([(r, c + 1) for r, c in active_piece]):
@@ -1057,6 +1222,7 @@ class TetrisGame:
 
                     # Save the result
                     viable_drops[(1, rotation)] = grid_copy
+                    drop_heuristics[(1, rotation)] = self.evaluate_heuristics(grid_copy, weights)
 
                     # Two spaces to the right
                     if self.is_valid_position([(r, c + 2) for r, c in active_piece]):
@@ -1079,6 +1245,7 @@ class TetrisGame:
 
                         # Save the result
                         viable_drops[(2, rotation)] = grid_copy
+                        drop_heuristics[(2, rotation)] = self.evaluate_heuristics(grid_copy, weights)
 
                         # Three spaces to the right
                         if self.is_valid_position([(r, c + 3) for r, c in active_piece]):
@@ -1101,6 +1268,7 @@ class TetrisGame:
 
                             # Save the result
                             viable_drops[(3, rotation)] = grid_copy
+                            drop_heuristics[(3, rotation)] = self.evaluate_heuristics(grid_copy, weights)
 
                             # Four spaces to the right
                             if self.is_valid_position([(r, c + 4) for r, c in active_piece]):
@@ -1123,6 +1291,7 @@ class TetrisGame:
 
                                 # Save the result
                                 viable_drops[(4, rotation)] = grid_copy
+                                drop_heuristics[(4, rotation)] = self.evaluate_heuristics(grid_copy, weights)
 
                                 # Five spaces to the right
                                 if self.is_valid_position([(r, c + 5) for r, c in active_piece]):
@@ -1145,6 +1314,7 @@ class TetrisGame:
 
                                     # Save the result
                                     viable_drops[(5, rotation)] = grid_copy
+                                    drop_heuristics[(5, rotation)] = self.evaluate_heuristics(grid_copy, weights)
 
                 # Simulate the hard drop in place (necessarily viable so no if statement):
                 dropped_piece = list(active_piece)
@@ -1163,27 +1333,22 @@ class TetrisGame:
 
                 # Save the result
                 viable_drops[(0, rotation)] = grid_copy
+                drop_heuristics[(0, rotation)] = self.evaluate_heuristics(grid_copy, weights)
 
-                # Rotate piece before iterating (or back to original iteration in case of the final loop).
-                self.rotate_piece("L")
+            # Rotate piece before iterating (or back to original iteration in case of the final loop).
+            self.rotate_piece("L")
 
-
-                active_piece = list(self.current_piece) # Re-initialize at new rotation
+            active_piece = list(self.current_piece) # Re-initialize at new rotation
 
         # Reset to original orientation
-        self.current_piece = original_orientation
+        # self.current_piece = original_orientation
 
         # Add the current grid into the dict of choices to represent the hold action (if it's available)
         if not self.hold_used:
             viable_drops[("Hold", 0)] = self.grid
+            drop_heuristics[("Hold", 0)] = self.evaluate_heuristics(grid_copy, weights)
 
-        return viable_drops
-
-
-
-
-
-
+        return viable_drops, drop_heuristics
 
 
     def draw_hold_box(self):
