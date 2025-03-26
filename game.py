@@ -426,7 +426,7 @@ def clear_clear_text():
 
 def clear_lines():
     """Checks for full lines, clears them, shifts the above lines down, detects perfect clear, and awards points."""
-    global grid, lines_cleared, score, b2b, clear_combo, game_over_condition, game_over
+    global grid, lines_cleared, score, b2b, clear_combo, game_over_condition, game_over, total_pieces_placed
 
     # Initialize local variables:
     full_rows = [r for r in range(ROWS) if all(grid[r, c] != "X" for c in range(COLS))] # Identify full rows
@@ -461,6 +461,7 @@ def clear_lines():
         lines_cleared -= num_cleared
     elif game_mode == "Sprint" and lines_cleared <= num_cleared:
         lines_cleared = 0
+        total_pieces_placed += 1
         game_over_condition = "Clear!"
         game_over = True
         game_over_screen()
