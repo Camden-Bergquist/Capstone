@@ -1088,7 +1088,8 @@ class TetrisGame:
 
     def get_all_viable_hard_drops(self, weights = None):
         """Returns a list of every possible resulting grid for a given piece for the AI to choose from."""
-        original_orientation = np.copy(self.current_piece) # Preserve original piece in case of wall-kick shenanigans.
+        original_next_queue = self.next_queue # To account for the hold piece being empty and having to potentially reset the next queue
+        original_held_piece = self.held_piece # Same deal here
         viable_drops = {} # To be appended to before returning
         drop_heuristics = {} # to be appended to before returning
         active_piece = list(self.current_piece)
@@ -1101,7 +1102,8 @@ class TetrisGame:
         }
 
         weights = weights if weights is not None else (1, 1, 1, 1)
-            
+        
+        # Current Piece Calculations:
         for rotation in rotations:
 
             if self.current_piece_type in checks[rotation]:
@@ -1126,8 +1128,8 @@ class TetrisGame:
                             grid_copy[r, c] = self.current_piece_type
 
                     # Save the result
-                    viable_drops[(-1, rotation)] = grid_copy
-                    drop_heuristics[(-1, rotation)] = self.evaluate_heuristics(grid_copy, weights)
+                    viable_drops[(-1, rotation, False)] = grid_copy
+                    drop_heuristics[(-1, rotation, False)] = self.evaluate_heuristics(grid_copy, weights)
 
                     # This feels like a war crime but the nested if statements make sense here.
                     # Two spaces to the left
@@ -1150,8 +1152,8 @@ class TetrisGame:
                                 grid_copy[r, c] = self.current_piece_type
 
                         # Save the result
-                        viable_drops[(-2, rotation)] = grid_copy
-                        drop_heuristics[(-2, rotation)] = self.evaluate_heuristics(grid_copy, weights)
+                        viable_drops[(-2, rotation, False)] = grid_copy
+                        drop_heuristics[(-2, rotation, False)] = self.evaluate_heuristics(grid_copy, weights)
 
                         # Three spaces to the left
                         if self.is_valid_position([(r, c - 3) for r, c in active_piece]):
@@ -1173,8 +1175,8 @@ class TetrisGame:
                                     grid_copy[r, c] = self.current_piece_type
 
                             # Save the result
-                            viable_drops[(-3, rotation)] = grid_copy
-                            drop_heuristics[(-3, rotation)] = self.evaluate_heuristics(grid_copy, weights)
+                            viable_drops[(-3, rotation, False)] = grid_copy
+                            drop_heuristics[(-3, rotation, False)] = self.evaluate_heuristics(grid_copy, weights)
 
                             # Four spaces to the left
                             if self.is_valid_position([(r, c - 4) for r, c in active_piece]):
@@ -1196,8 +1198,8 @@ class TetrisGame:
                                         grid_copy[r, c] = self.current_piece_type
 
                                 # Save the result
-                                viable_drops[(-4, rotation)] = grid_copy
-                                drop_heuristics[(-4, rotation)] = self.evaluate_heuristics(grid_copy, weights)
+                                viable_drops[(-4, rotation, False)] = grid_copy
+                                drop_heuristics[(-4, rotation, False)] = self.evaluate_heuristics(grid_copy, weights)
 
                 # One space to the right
                 if self.is_valid_position([(r, c + 1) for r, c in active_piece]):
@@ -1219,8 +1221,8 @@ class TetrisGame:
                             grid_copy[r, c] = self.current_piece_type
 
                     # Save the result
-                    viable_drops[(1, rotation)] = grid_copy
-                    drop_heuristics[(1, rotation)] = self.evaluate_heuristics(grid_copy, weights)
+                    viable_drops[(1, rotation, False)] = grid_copy
+                    drop_heuristics[(1, rotation, False)] = self.evaluate_heuristics(grid_copy, weights)
 
                     # Two spaces to the right
                     if self.is_valid_position([(r, c + 2) for r, c in active_piece]):
@@ -1242,8 +1244,8 @@ class TetrisGame:
                                 grid_copy[r, c] = self.current_piece_type
 
                         # Save the result
-                        viable_drops[(2, rotation)] = grid_copy
-                        drop_heuristics[(2, rotation)] = self.evaluate_heuristics(grid_copy, weights)
+                        viable_drops[(2, rotation, False)] = grid_copy
+                        drop_heuristics[(2, rotation, False)] = self.evaluate_heuristics(grid_copy, weights)
 
                         # Three spaces to the right
                         if self.is_valid_position([(r, c + 3) for r, c in active_piece]):
@@ -1265,8 +1267,8 @@ class TetrisGame:
                                     grid_copy[r, c] = self.current_piece_type
 
                             # Save the result
-                            viable_drops[(3, rotation)] = grid_copy
-                            drop_heuristics[(3, rotation)] = self.evaluate_heuristics(grid_copy, weights)
+                            viable_drops[(3, rotation, False)] = grid_copy
+                            drop_heuristics[(3, rotation, False)] = self.evaluate_heuristics(grid_copy, weights)
 
                             # Four spaces to the right
                             if self.is_valid_position([(r, c + 4) for r, c in active_piece]):
@@ -1288,8 +1290,8 @@ class TetrisGame:
                                         grid_copy[r, c] = self.current_piece_type
 
                                 # Save the result
-                                viable_drops[(4, rotation)] = grid_copy
-                                drop_heuristics[(4, rotation)] = self.evaluate_heuristics(grid_copy, weights)
+                                viable_drops[(4, rotation, False)] = grid_copy
+                                drop_heuristics[(4, rotation, False)] = self.evaluate_heuristics(grid_copy, weights)
 
                                 # Five spaces to the right
                                 if self.is_valid_position([(r, c + 5) for r, c in active_piece]):
@@ -1311,8 +1313,8 @@ class TetrisGame:
                                             grid_copy[r, c] = self.current_piece_type
 
                                     # Save the result
-                                    viable_drops[(5, rotation)] = grid_copy
-                                    drop_heuristics[(5, rotation)] = self.evaluate_heuristics(grid_copy, weights)
+                                    viable_drops[(5, rotation, False)] = grid_copy
+                                    drop_heuristics[(5, rotation, False)] = self.evaluate_heuristics(grid_copy, weights)
 
                 # Simulate the hard drop in place (necessarily viable so no if statement):
                 dropped_piece = list(active_piece)
@@ -1330,21 +1332,264 @@ class TetrisGame:
                         grid_copy[r, c] = self.current_piece_type
 
                 # Save the result
-                viable_drops[(0, rotation)] = grid_copy
-                drop_heuristics[(0, rotation)] = self.evaluate_heuristics(grid_copy, weights)
+                viable_drops[(0, rotation, False)] = grid_copy
+                drop_heuristics[(0, rotation, False)] = self.evaluate_heuristics(grid_copy, weights)
 
             # Rotate piece before iterating (or back to original iteration in case of the final loop).
             self.rotate_piece("L")
 
             active_piece = list(self.current_piece) # Re-initialize at new rotation
 
-        # Reset to original orientation
-        # self.current_piece = original_orientation
+        # Do the same calculations for the hold piece, so long as it isn't the same piece type as the active piece.
+        if self.held_piece != self.current_piece_type:
 
-        # Add the current grid into the dict of choices to represent the hold action (if it's available)
-        if not self.hold_used:
-            viable_drops[("Hold", 0)] = self.grid
-            drop_heuristics[("Hold", 0)] = self.evaluate_heuristics(grid_copy, weights)
+            self.hold_piece() # Swap current piece w/ either held piece (or next-up, if hold is empty).
+            self.hold_used = False # Allow for the hold action to be used again afterwards
+
+
+            for rotation in rotations:
+
+                if self.current_piece_type in checks[rotation]:
+
+                    # One space to the left
+                    if self.is_valid_position([(r, c - 1) for r, c in active_piece]):
+                        shifted_piece = [(r, c - 1) for r, c in active_piece]
+
+                        # Simulate the hard drop
+                        dropped_piece = list(shifted_piece)
+                        while True:
+                            next_pos = [(r + 1, c) for r, c in dropped_piece]
+                            if self.is_valid_position(next_pos):
+                                dropped_piece = next_pos
+                            else:
+                                break
+
+                        # Fill the piece into a copy of the grid
+                        grid_copy = np.copy(self.grid)
+                        for r, c in dropped_piece:
+                            if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                grid_copy[r, c] = self.current_piece_type
+
+                        # Save the result
+                        viable_drops[(-1, rotation, True)] = grid_copy
+                        drop_heuristics[(-1, rotation, True)] = self.evaluate_heuristics(grid_copy, weights)
+
+                        # This feels like a war crime but the nested if statements make sense here.
+                        # Two spaces to the left
+                        if self.is_valid_position([(r, c - 2) for r, c in active_piece]):
+                            shifted_piece = [(r, c - 2) for r, c in active_piece]
+
+                            # Simulate the hard drop
+                            dropped_piece = list(shifted_piece)
+                            while True:
+                                next_pos = [(r + 1, c) for r, c in dropped_piece]
+                                if self.is_valid_position(next_pos):
+                                    dropped_piece = next_pos
+                                else:
+                                    break
+
+                            # Fill the piece into a copy of the grid
+                            grid_copy = np.copy(self.grid)
+                            for r, c in dropped_piece:
+                                if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                    grid_copy[r, c] = self.current_piece_type
+
+                            # Save the result
+                            viable_drops[(-2, rotation, True)] = grid_copy
+                            drop_heuristics[(-2, rotation, True)] = self.evaluate_heuristics(grid_copy, weights)
+
+                            # Three spaces to the left
+                            if self.is_valid_position([(r, c - 3) for r, c in active_piece]):
+                                shifted_piece = [(r, c - 3) for r, c in active_piece]
+
+                                # Simulate the hard drop
+                                dropped_piece = list(shifted_piece)
+                                while True:
+                                    next_pos = [(r + 1, c) for r, c in dropped_piece]
+                                    if self.is_valid_position(next_pos):
+                                        dropped_piece = next_pos
+                                    else:
+                                        break
+
+                                # Fill the piece into a copy of the grid
+                                grid_copy = np.copy(self.grid)
+                                for r, c in dropped_piece:
+                                    if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                        grid_copy[r, c] = self.current_piece_type
+
+                                # Save the result
+                                viable_drops[(-3, rotation, True)] = grid_copy
+                                drop_heuristics[(-3, rotation, True)] = self.evaluate_heuristics(grid_copy, weights)
+
+                                # Four spaces to the left
+                                if self.is_valid_position([(r, c - 4) for r, c in active_piece]):
+                                    shifted_piece = [(r, c - 4) for r, c in active_piece]
+
+                                    # Simulate the hard drop
+                                    dropped_piece = list(shifted_piece)
+                                    while True:
+                                        next_pos = [(r + 1, c) for r, c in dropped_piece]
+                                        if self.is_valid_position(next_pos):
+                                            dropped_piece = next_pos
+                                        else:
+                                            break
+
+                                    # Fill the piece into a copy of the grid
+                                    grid_copy = np.copy(self.grid)
+                                    for r, c in dropped_piece:
+                                        if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                            grid_copy[r, c] = self.current_piece_type
+
+                                    # Save the result
+                                    viable_drops[(-4, rotation, True)] = grid_copy
+                                    drop_heuristics[(-4, rotation, True)] = self.evaluate_heuristics(grid_copy, weights)
+
+                    # One space to the right
+                    if self.is_valid_position([(r, c + 1) for r, c in active_piece]):
+                        shifted_piece = [(r, c + 1) for r, c in active_piece]
+
+                        # Simulate the hard drop
+                        dropped_piece = list(shifted_piece)
+                        while True:
+                            next_pos = [(r + 1, c) for r, c in dropped_piece]
+                            if self.is_valid_position(next_pos):
+                                dropped_piece = next_pos
+                            else:
+                                break
+
+                        # Fill the piece into a copy of the grid
+                        grid_copy = np.copy(self.grid)
+                        for r, c in dropped_piece:
+                            if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                grid_copy[r, c] = self.current_piece_type
+
+                        # Save the result
+                        viable_drops[(1, rotation, True)] = grid_copy
+                        drop_heuristics[(1, rotation, True)] = self.evaluate_heuristics(grid_copy, weights)
+
+                        # Two spaces to the right
+                        if self.is_valid_position([(r, c + 2) for r, c in active_piece]):
+                            shifted_piece = [(r, c + 2) for r, c in active_piece]
+
+                            # Simulate the hard drop
+                            dropped_piece = list(shifted_piece)
+                            while True:
+                                next_pos = [(r + 1, c) for r, c in dropped_piece]
+                                if self.is_valid_position(next_pos):
+                                    dropped_piece = next_pos
+                                else:
+                                    break
+
+                            # Fill the piece into a copy of the grid
+                            grid_copy = np.copy(self.grid)
+                            for r, c in dropped_piece:
+                                if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                    grid_copy[r, c] = self.current_piece_type
+
+                            # Save the result
+                            viable_drops[(2, rotation, True)] = grid_copy
+                            drop_heuristics[(2, rotation, True)] = self.evaluate_heuristics(grid_copy, weights)
+
+                            # Three spaces to the right
+                            if self.is_valid_position([(r, c + 3) for r, c in active_piece]):
+                                shifted_piece = [(r, c + 3) for r, c in active_piece]
+
+                                # Simulate the hard drop
+                                dropped_piece = list(shifted_piece)
+                                while True:
+                                    next_pos = [(r + 1, c) for r, c in dropped_piece]
+                                    if self.is_valid_position(next_pos):
+                                        dropped_piece = next_pos
+                                    else:
+                                        break
+
+                                # Fill the piece into a copy of the grid
+                                grid_copy = np.copy(self.grid)
+                                for r, c in dropped_piece:
+                                    if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                        grid_copy[r, c] = self.current_piece_type
+
+                                # Save the result
+                                viable_drops[(3, rotation, True)] = grid_copy
+                                drop_heuristics[(3, rotation, True)] = self.evaluate_heuristics(grid_copy, weights)
+
+                                # Four spaces to the right
+                                if self.is_valid_position([(r, c + 4) for r, c in active_piece]):
+                                    shifted_piece = [(r, c + 4) for r, c in active_piece]
+
+                                    # Simulate the hard drop
+                                    dropped_piece = list(shifted_piece)
+                                    while True:
+                                        next_pos = [(r + 1, c) for r, c in dropped_piece]
+                                        if self.is_valid_position(next_pos):
+                                            dropped_piece = next_pos
+                                        else:
+                                            break
+
+                                    # Fill the piece into a copy of the grid
+                                    grid_copy = np.copy(self.grid)
+                                    for r, c in dropped_piece:
+                                        if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                            grid_copy[r, c] = self.current_piece_type
+
+                                    # Save the result
+                                    viable_drops[(4, rotation, True)] = grid_copy
+                                    drop_heuristics[(4, rotation, True)] = self.evaluate_heuristics(grid_copy, weights)
+
+                                    # Five spaces to the right
+                                    if self.is_valid_position([(r, c + 5) for r, c in active_piece]):
+                                        shifted_piece = [(r, c + 5) for r, c in active_piece]
+
+                                        # Simulate the hard drop
+                                        dropped_piece = list(shifted_piece)
+                                        while True:
+                                            next_pos = [(r + 1, c) for r, c in dropped_piece]
+                                            if self.is_valid_position(next_pos):
+                                                dropped_piece = next_pos
+                                            else:
+                                                break
+
+                                        # Fill the piece into a copy of the grid
+                                        grid_copy = np.copy(self.grid)
+                                        for r, c in dropped_piece:
+                                            if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                                                grid_copy[r, c] = self.current_piece_type
+
+                                        # Save the result
+                                        viable_drops[(5, rotation, True)] = grid_copy
+                                        drop_heuristics[(5, rotation, True)] = self.evaluate_heuristics(grid_copy, weights)
+
+                    # Simulate the hard drop in place (necessarily viable so no if statement):
+                    dropped_piece = list(active_piece)
+                    while True:
+                        next_pos = [(r + 1, c) for r, c in dropped_piece]
+                        if self.is_valid_position(next_pos):
+                            dropped_piece = next_pos
+                        else:
+                            break
+
+                    # Fill the piece into a copy of the grid
+                    grid_copy = np.copy(self.grid)
+                    for r, c in dropped_piece:
+                        if 0 <= r < self.ROWS and 0 <= c < self.COLS:
+                            grid_copy[r, c] = self.current_piece_type
+
+                    # Save the result
+                    viable_drops[(0, rotation, True)] = grid_copy
+                    drop_heuristics[(0, rotation, True)] = self.evaluate_heuristics(grid_copy, weights)
+
+                # Rotate piece before iterating (or back to original iteration in case of the final loop).
+                self.rotate_piece("L")
+
+                active_piece = list(self.current_piece) # Re-initialize at new rotation
+
+            self.hold_piece() # Swap back
+            self.hold_used = False # Allow for the hold action to be used again afterwards
+
+            # Replaces held piece and next queue as they were in case the hold queue was empty.
+            # No if statement since it should essentially just do nothing if the queue wasn't empty.
+            self.next_queue = original_next_queue
+            self.held_piece = original_held_piece
 
         return viable_drops, drop_heuristics
 

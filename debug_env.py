@@ -28,11 +28,15 @@ class DebugHeuristicEnv(gym.Env):
 
     def step(self, action_tuple):
         self.steps += 1
-        dx, rotation = action_tuple
+        dx, rotation, hold = action_tuple
 
         # Small sleep on startup
         if self.steps == 1:
             time.sleep(2.0)
+
+        # Hold
+        if hold:
+            self.game.game_step(7)
 
         # --- Rotation ---
         match rotation:
