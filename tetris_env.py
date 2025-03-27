@@ -13,6 +13,7 @@ class TetrisEnv(gym.Env):
         self.last_score = 0
         self.last_pieces_placed = 0
         self.last_lines_cleared = 0
+        self.reset_tracker = 0
 
         self.action_space = None # No actions to partake after making choice
 
@@ -21,7 +22,8 @@ class TetrisEnv(gym.Env):
         self.game.reset_game_state()
         self.last_score = 0
         self.last_pieces_placed = 0
-        self.last_lines_cleared = 0
+        self.last_lines_cleared = self.game.lines_cleared
+        self.reset_tracker += 1
         print(f"Commencing with reset.")
 
         # Simulate one tick to process gravity/locking logic
@@ -75,17 +77,30 @@ class TetrisEnv(gym.Env):
             self.last_score = self.game.score
 
         elif self.mode == "Sprint":
-            lines_cleared_now = self.game.lines_cleared - self.last_lines_cleared
+            lines_cleared_now = self.last_lines_cleared - self.game.lines_cleared
             self.last_lines_cleared = self.game.lines_cleared
+            
 
             if done:
                 if self.game.lines_cleared == 0:
                     reward = -self.game.total_pieces_placed
                 else:
-                    reward = -430 + self.game.total_pieces_placed
+                    reward = -2650 + self.game.total_pieces_placed
             else:
-                reward += lines_cleared_now * 5
-                reward += 0.1 # Slight score for survival.
+                reward += lines_cleared_now * 500
+                reward += 0.005 * self.game.lock_reward
+                if self.game.flat_placement:
+                    reward += 3
+                    # print("Flat Placement Detected!") # Debug
+                if self.game.height_gap:
+                    reward -= 0.5
+                else:
+                    reward += 0.25
+                    # print("Height Gap of 8 or More Detected!") # Debug
+                # print(f"Lock Reward Awarded: {0.01 * self.game.lock_reward}")
+                # print(f"Lines Cleared Now: {lines_cleared_now}. Lines Remaining: {self.game.lines_cleared}")
+                if lines_cleared_now:
+                    print(f"Line(s) Cleared! Amount: {lines_cleared_now}.")
 
         else:
             raise ValueError("Error: Mode not Blitz or Sprint.")
@@ -93,7 +108,8 @@ class TetrisEnv(gym.Env):
         obs = self.get_observation()
         info = {}
 
-        time.sleep(0.2)
+        # Adds a buffer in-between steps so that training is more-easily monitored.
+        # time.sleep(0.5) 
 
         return obs, reward, done, info
 

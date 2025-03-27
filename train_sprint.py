@@ -62,7 +62,7 @@ class TetrisSprintProblem(Problem):
                 break
 
             # Debug: Print number of drop options available
-            print(f"[DEBUG] Step {step:04}: {len(placement_keys)} drop options")
+            # print(f"[DEBUG] Step {step:04}: {len(placement_keys)} drop options")
 
             # Store both current and future grid together in the observation
             current_grid = self.env.game.grid
@@ -92,13 +92,13 @@ class TetrisSprintProblem(Problem):
             chosen_move = placement_keys[chosen_idx]
 
             # Debug: Show the selected move and its score
-            print(f"[DEBUG] Chose move: {chosen_move}, score: {scores[chosen_idx].item():.4f}")
+            # print(f"[DEBUG] Chose move: {chosen_move}, score: {scores[chosen_idx].item():.4f}")
 
             obs, reward, done, _ = self.env.step(chosen_move)
             total_reward += reward
 
             if done:
-                print(f"[Episode Ended] Total reward: {total_reward} in {step + 1} steps.")
+                print(f"[Episode {self.env.reset_tracker} Ended] Lines Remaining: {self.env.game.lines_cleared}, Total Reward: {total_reward}, in {step + 1} steps.")
                 break
 
         solution.set_evals(total_reward)
@@ -109,14 +109,14 @@ problem = TetrisSprintProblem()
 
 # Step 3: Set up the SNES searcher
 print("[SETUP] Initializing SNES optimizer...")
-searcher = SNES(problem, popsize=10, stdev_init=0.05)
+searcher = SNES(problem, popsize=100, stdev_init=1.0)
 
 # Step 4: Attach a logger to track progress
 logger = StdOutLogger(searcher)
 
 # Step 5: Run the training loop
 print("[TRAINING] Starting evolutionary training...")
-searcher.run(10)
+searcher.run(500)
 print("[TRAINING] Finished training loop.")
 
 # Step 6: Save the best solution
