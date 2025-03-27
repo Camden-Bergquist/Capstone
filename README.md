@@ -75,6 +75,8 @@ The core of my analysis will be performed with two so-called 'universes' of smal
 
 My minimum viable product is a Python script fulfilling the first step of the project: a fully-functional version of Tetris, built from the ground up for the AI to play. In order to test its functionalities, it also necessarily accommodates human players.
 
+An executable version of the script, compiled with [PyInstaller,](https://pyinstaller.org/en/stable/) can be found [here.](https://github.com/Camden-Bergquist/Capstone/releases/tag/1.0.0)
+
 ### Start Menu:
 
 ![Start Menu](readme_images/Mode_Select.PNG)
