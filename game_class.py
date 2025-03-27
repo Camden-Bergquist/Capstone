@@ -515,10 +515,8 @@ class TetrisGame:
             self.lines_cleared -= num_cleared
         elif self.game_mode == "Sprint" and self.lines_cleared <= num_cleared:
             self.lines_cleared = 0
-            self.total_pieces_placed += 1
             self.game_over_condition = "Clear!"
             self.game_over = True
-            self.game_over_screen()
         else:
             self.lines_cleared += num_cleared
 
