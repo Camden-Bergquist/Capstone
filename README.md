@@ -240,7 +240,7 @@ First, the AI compiles a list of all possible hard drops for a given piece (as w
 </div>
 <br>
 
-Then, it evaluates each option by multiplying each of its current weights by one of the four heuristics calculated on a drop location: number of holes present, number of lines cleared, aggregate column height, and the sum of the absolute differences between adjacent column heights. These weights start out as random values, and the idea is that, over time, the AI will learn how much 'importance' to assign to each heuristic.
+Then, it evaluates each option by multiplying each of its current weights by one of the four heuristics calculated on a drop location: number of holes present, number of lines cleared, aggregate column height, and the sum of the absolute differences between adjacent column heights (bumpiness). These weights start out as random values, and the idea is that, over time, the AI will learn how much 'importance' to assign to each heuristic.
 
 <br>
 <div align="center">
@@ -281,7 +281,11 @@ Finally, it chooses the option with the highest total heuristic score given its 
 
 ### AI Training:
 
+The AI was trained on a linear, evolution-based model. An evolution model trains entire batches, or 'populations, of agents at a time, and only iteratively learns after each agent in a population is finished. This is in contrast to a standard reinforcmenet-learning model, which typically learns after each 'episode' (in our case, an episode is a full game of Sprint mode, played to either completion or top-out). Broadly speaking, the way an evolutionary algorithm works is by training an entire population of agents, measuring how well they do, and then creating an entirely new population of agents based off of the traits exhibited by the best performers in the previous generation. Evolutionary algorithms are known for their robustness, and excel at learning to solve broad, chaotic problems with large amounts of potential game states, which makes them perfect for a game like Tetris.
+
 ### Result:
+
+The current best-performing model uses the weights -1.65, 0.71, -1.25, and -0.39 for the aggregate height, lines cleared, holes, and bumpiness heuristics, respectively. This means that it evaluates a piece placement by counting the value for each heuristic, before passing them through the following function to get a final score:
 
 ### Drawbacks:
 
