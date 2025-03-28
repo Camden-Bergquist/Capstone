@@ -129,8 +129,6 @@ Upon the conclusion of a game, whether through successful clearance or a topout,
 
 ## Alpha Release (Sprint Mode):
 
-*Work-in-progress.*
-
 ### Preface:
 
 A large portion of the AI's training on Sprint mode, as well as the embedded images and explanations in this section of the readme, were heavily inspired by a [2013 blog post written by Yiyuan Lee](https://codemyroad.wordpress.com/2013/04/14/tetris-ai-the-near-perfect-player/) in which he tackles a very similar problem, building an AI to play Tetris with JavaScript.
