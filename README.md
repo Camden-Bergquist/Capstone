@@ -20,10 +20,8 @@
   - [Gameplay and Controls](#gameplay-and-controls)
   - [End Screen](#end-screen)
 - [Alpha Release (Sprint Mode)](#alpha-release-sprint-mode)
-  - [Preface and Sprint Mode Overview](#preface-and-sprint-mode-overview)
-    - [Preface](#preface)
-    - [Objective](#objective)
-    - [Strategy](#strategy)
+- [Preface](#preface)
+  - [Strategy](#strategy)
   - [AI Reward and General Methodology](#ai-reward-and-general-methodology)
   - [AI Training](#ai-training)
   - [Result](#result)
@@ -126,15 +124,44 @@ Upon the conclusion of a game, whether through successful clearance or a topout,
 
 ## Alpha Release (Sprint Mode):
 
-*To be written during the morning class session of 3/28.*
+*Work-in-progress.*
 
-### Preface and Sprint Mode Overview:
+### Preface:
 
-#### Preface:
+A large portion of the AI's training on Sprint mode, as well as the embedded images and explanations in this section of the readme, were heavily inspired by a [2013 blog post written by Yiyuan Lee](https://codemyroad.wordpress.com/2013/04/14/tetris-ai-the-near-perfect-player/) in which he tackles a very similar problem, building an AI to play Tetris with JavaScript.
 
-#### Objective:
+Additionally, a majority of the embeds in this section are images and gifs taken in [Four-tris,](https://github.com/fiorescarlatto/four-tris) which is a Tetris training tool that allowed me to easily create explanatory diagrams.
 
-#### Strategy:
+### Strategy:
+
+In Sprint mode, the player's objective is to clear a certain, predefined number of lines as quickly as possible. Most commonly, this number is 40, called a '40-line Sprint', but you might also occasionally see 80- and 100-line sprints. In the context project, you should assume a 40-line Sprint any time Sprint mode is referred to, unless explicitly stated otherwise. The major goal of training an AI on Sprint mode is to see if it identifies any of the sorts of human optimizations or general strategic tenets while learning the game.
+
+#### Pattern Stacking:
+
+Inevitably, when presented with a goal like this, players will attempt to optimize their piece-stacking strategy to make things easier on themselves, both in terms of deciding where to place pieces, and in terms of the number of player actions required of them (i.e., the number of times a piece is moved horizontally before it's placed). These stacking strategies all have a certain pattern or orientation to them, and are accordingly referred to as 'pattern stacking'.
+
+<br>
+<div align="center">
+  
+<table>
+  <tr>
+    <td align="center">
+      <img src="readme_embeds/9-0_Stack_Example.PNG" width="250px"><br>
+      <em>Example of 9–0 Stacking.</em>
+    </td>
+    <td align="center">
+      <img src="readme_embeds/6-3_Stack_Example.PNG" width="250px"><br>
+      <em>Example of 6–3 Stacking.</em>
+    </td>
+  </tr>
+</table>
+
+</div>
+<br>
+
+All forms of pattern stacking used in Sprint mode follow a simple formula— one 'well', which is the column reserved for the I-piece (the long piece), with the rest of the columns filled in with pieces. All Sprint-based pattern stacking can be described with the notation 'X–Y', where X is the number of filled columns to the left of the well, and Y is the number on the right. Pictured above are the two most commonly-seen forms of pattern stacking: 9–0, and 6–3. 9–0 – keeping everything in a big stack and placing the well to the right side (0–9, if the well is on the left) – should be familiar to any person reading this who's played Tetris before, and is perhaps the single most common and straightforward strategic idea in all of Tetris. 6–3 (or its mirror 3–6), on the other hand, is a more advanced stacking method that places the well in-between stacks to either side. It is the most popular form of pattern stacking among advanced players, largely because it minimizes the number of player inputs (keystrokes, button presses) needed to place pieces, which, in turn, increases clear speed.
+
+#### Hard Drops vs Soft Drops:
 
 ### AI Reward and General Methodology:
 
