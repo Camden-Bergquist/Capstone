@@ -19,6 +19,15 @@
   - [Start Menu](#start-menu)
   - [Gameplay and Controls](#gameplay-and-controls)
   - [End Screen](#end-screen)
+- [Alpha Release (Sprint Mode)](#alpha-release-sprint-mode)
+  - [Preface and Sprint Mode Overview](#preface-and-sprint-mode-overview)
+    - [Preface](#preface)
+    - [Objective](#objective)
+    - [Strategy](#strategy)
+  - [AI Reward and General Methodology](#ai-reward-and-general-methodology)
+  - [AI Training](#ai-training)
+  - [Result](#result)
+  - [Drawbacks](#drawbacks)
 
 ## Resource Briefing:
 ### Proposal Paper Abstract:
@@ -114,3 +123,25 @@ There are a few UI indicators of note:
 ![End Screen](readme_embeds/Sprint%20Clear.PNG)
 
 Upon the conclusion of a game, whether through successful clearance or a topout, an end screen will appear displaying relevant statistics, as well as offering the player two buttons: one will return them to the mode-select menu, while the other will quit the game.
+
+## Alpha Release (Sprint Mode):
+
+*To be written during the morning class session of 3/28.*
+
+### Preface and Sprint Mode Overview:
+
+#### Preface:
+
+#### Objective:
+
+#### Strategy:
+
+### AI Reward and General Methodology:
+
+### AI Training:
+
+### Result:
+
+### Drawbacks:
+
+
