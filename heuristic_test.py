@@ -1,12 +1,15 @@
 import torch
+import time
 from sprint_env import SprintHeuristicEnv
 from debug_env import DebugHeuristicEnv
 
-# Article's heuristic weights
+## Article's heuristic weights
 # weights = torch.tensor([-0.510066, 0.760666, -0.35663, -0.184483], dtype=torch.float32)
-# Trained heuristic weights (batch size = 60, batches = 60, for 3600 total games played.)
+## Trained heuristic weights (batch size = 60, batches = 60, initial bounds = (-1, 1), stdev = 0.5 for 3600 total games played.)
 weights = torch.tensor([-1.6576130390167236, 0.7060774564743042, -1.2531158924102783, -0.38837742805480957], dtype=torch.float32)
-
+## Trained heuristic weights (batch size = 50, batches = 50, initial bounds = (-2, 2), stdev = 0.35 for 2500 total games played.)
+## Seems worse than first one
+# weights = torch.tensor([-1.8885021209716797, 0.568851888179779, -0.11384600400924683, -0.6549524664878845], dtype=torch.float32)
 
 # Number of games to test
 num_games = 10
@@ -47,6 +50,8 @@ for game_index in range(num_games):
         "lines_remaining": env.game.lines_cleared,
         "pieces_placed": env.game.total_pieces_placed
     })
+
+    time.sleep(2)
 
 # Display the results
 import pandas as pd

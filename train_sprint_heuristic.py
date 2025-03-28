@@ -45,11 +45,11 @@ if __name__ == "__main__":
     problem = HeuristicTetrisProblem()
 
     print("[SETUP] Initializing SNES optimizer...")
-    searcher = SNES(problem, popsize=60, stdev_init=0.5)
+    searcher = SNES(problem, popsize=50, stdev_init=0.25)
     logger = StdOutLogger(searcher)
 
     print("[TRAINING] Starting evolutionary search...")
-    searcher.run(60)
+    searcher.run(50)
     print("[TRAINING] Finished.")
 
     best = searcher.status["best"]

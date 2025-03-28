@@ -31,8 +31,8 @@ class SprintHeuristicEnv(gym.Env):
         dx, rotation, hold = action_tuple
 
         # Small sleep on startup
-        # if self.steps == 1:
-            # time.sleep(2.0)
+        if self.steps == 1:
+            time.sleep(2.0)
 
         # Hold
         if hold:
@@ -101,7 +101,7 @@ class SprintHeuristicEnv(gym.Env):
         info = {}
 
         # Time between actions (comment out when training)
-        # time.sleep(0.2)
+        time.sleep(0.1)
 
         return obs, reward, done, info
 
