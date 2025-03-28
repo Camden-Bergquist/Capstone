@@ -206,7 +206,7 @@ If, instead, the AI loses by topping out, then it recieves additional rewards ba
 
 <br>
 <div align="center">
-  <img src="readme_embeds/Sprint_Rewards.png" width="1200px">
+  <img src="readme_embeds/Sprint_Rewards_HQ.png" width="1000px">
 </div>
 <br>
 
@@ -286,6 +286,12 @@ The AI was trained on a linear, evolution-based model. An evolution model trains
 ### Result:
 
 The current best-performing model uses the weights -1.65, 0.71, -1.25, and -0.39 for the aggregate height, lines cleared, holes, and bumpiness heuristics, respectively. This means that it evaluates a piece placement by counting the value for each heuristic, before passing them through the following function to get a final score:
+
+<br>
+<div align="center">
+  <img src="readme_embeds/Heuristic_Result.png" width="1000px">
+</div>
+<br>
 
 ### Drawbacks:
 
