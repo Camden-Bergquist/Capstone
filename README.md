@@ -22,6 +22,8 @@
 - [Alpha Release (Sprint Mode)](#alpha-release-sprint-mode)
 - [Preface](#preface)
   - [Strategy](#strategy)
+    - [Pattern Stacking](#pattern-stacking)
+    - [Hard Drops vs Soft Drops](#hard-drops-vs-soft-drops) 
   - [AI Reward and General Methodology](#ai-reward-and-general-methodology)
   - [AI Training](#ai-training)
   - [Result](#result)
@@ -186,6 +188,23 @@ Needless to say, hard drops are faster than soft drops, and so are preferred in 
 **Because of this, the AI is only allowed to hard drop when playing Sprint mode.** There's no reason to consider objectively sub-optimal decisions, after all. As a bonus, it significantly reduces the number of actions it needs to choose from, which consequently reduces the computational complexity of training and gameplay loops.
 
 ### AI Reward and General Methodology:
+
+#### Reward Methodology:
+
+When training an AI, it must be given a reward metric, or reward state, which tells it how well it performed a task upon completion (or failure)— a goal. Ideally, it would be possible to use the same goal that humans do for Sprint mode, which is clearing 40 lines as quickly as possible. Doing so is problematic, however, as an AI can make decisions really, *really* quickly, making it difficult to realistically compare its performance to humans. Moreover, this project isn't actually concerned with the speed at which an AI can place pieces – it's no surprise that computers are faster at calculations than humans – but with strategy— the decision-making process behind each piece placement. By rewarding the AI for clear speed, we wouldn't be teaching it to place pieces more efficiently, but to make decisions that increase its own decision-making speed, i.e., placing pieces in such a way that it has to consider fewer possibilities for each piece, which is nearly the opposite of this project's goal.
+
+Instead, the AI is being trained with the task of **reducing the number of total pieces placed upon winning the game.** The thought process here is simple— the fewer pieces a player needs to place, the quicker their clear time will be. Pieces placed, then, becomes a way of effectively comparing an AI agent to a human player, because it's a metric that doesn't rely on a shared perception of time, and instead asks the player to be as line-clear-efficient as possible with their placements.
+
+#### Reward Structure:
+
+Each time the AI's game ends – whether by topping out or by clearing 40 lines – it's awarded a point value associated to how well it performed. If it managed to clear all 40 lines, then its score is equal to the negation of the number of pieces it placed before winning. For example, if it cleared 40 lines after placing 112 pieces, then its final score would be -112. Its ultimate goal is to maximize this score towards the theoretical limit of -100 (it's mathematically impossible to win a 40-line sprint in less than 100 pieces).
+
+If, instead, the AI loses by topping out, then it recieves additional rewards based on the number of lines cleard and the number of pieces placed, minus a given offset:
+
+![sprint-reward](https://latex.codecogs.com/svg.image?\bg{black}\text{Total&space;Reward}=pieces\_placed\;&plus;\;(lines\_cleared\;\cdot\;5)\;-550)
+
+#### Decision-Making:
+
 
 ### AI Training:
 
