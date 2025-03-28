@@ -149,6 +149,7 @@ Inevitably, when presented with a goal like this, players will attempt to optimi
       <img src="readme_embeds/9-0_Stack_Example.PNG" width="250px"><br>
       <em>Example of 9–0 Stacking.</em>
     </td>
+    <td style="width: 100px;"></td> <!-- spacer cell -->
     <td align="center">
       <img src="readme_embeds/6-3_Stack_Example.PNG" width="250px"><br>
       <em>Example of 6–3 Stacking.</em>
@@ -162,6 +163,27 @@ Inevitably, when presented with a goal like this, players will attempt to optimi
 All forms of pattern stacking used in Sprint mode follow a simple formula— one 'well', which is the column reserved for the I-piece (the long piece), with the rest of the columns filled in with pieces. All Sprint-based pattern stacking can be described with the notation 'X–Y', where X is the number of filled columns to the left of the well, and Y is the number on the right. Pictured above are the two most commonly-seen forms of pattern stacking: 9–0, and 6–3. 9–0 – keeping everything in a big stack and placing the well to the right side (0–9, if the well is on the left) – should be familiar to any person reading this who's played Tetris before, and is perhaps the single most common and straightforward strategic idea in all of Tetris. 6–3 (or its mirror 3–6), on the other hand, is a more advanced stacking method that places the well in-between stacks to either side. It is the most popular form of pattern stacking among advanced players, largely because it minimizes the number of player inputs (keystrokes, button presses) needed to place pieces, which, in turn, increases clear speed.
 
 #### Hard Drops vs Soft Drops:
+
+<br>
+<div align="center">
+  
+<table>
+  <tr>
+    <td align="center">
+      <img src="readme_embeds/Hard_vs_Soft_Drop_Demo.gif" width="250px"><br>
+      <em>An I-Piece getting hard-dropped, then soft-dropped.</em>
+    </td>
+  </tr>
+</table>
+
+</div>
+<br>
+
+There are two types of piece placements, or 'drops', available to the player: soft drops, and hard drops. A soft drop increases the speed at which the piece falls to the bottom of the play matrix. While it moves downward, it can still be rotated, as well as moved horizontally. The player also retains the choice to swap the current piece with the held piece so long as the soft-dropped piece hasn't locked into place yet, buying them more time as the held piece spwans at the top of the matrix. Hard drops skip this process entirely, and instead instantly lock the piece into place as far downwards as it can move. Put in simpler terms, a hard drop instantly places the current piece in the location shown by the outline below it (called the 'ghost piece').
+
+Needless to say, hard drops are faster than soft drops, and so are preferred in every Tetris game mode that places importance on placement speed (which is most, if not all of them). There are only two reasons for a player to perform a soft drop. The first is to fix a mistake they made by accidentally creating a piece overhang, while the second is to score additional points in modes where certain types of soft drops award higher scores. Neither of these are relevant in Sprint mode. There are no points to be considered, and since it's slower it's considered a time-wasting mistake if even a moderately-skilled human player is forced to soft drop in a Sprint. 
+
+**Because of this, the AI is only allowed to hard drop when playing Sprint mode.** There's no reason to consider objectively sub-optimal decisions, after all. As a bonus, it significantly reduces the number of actions it needs to choose from, which consequently reduces the computational complexity of training and gameplay loops.
 
 ### AI Reward and General Methodology:
 
