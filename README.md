@@ -279,6 +279,8 @@ Finally, it chooses the option with the highest total heuristic score given its 
 </div>
 <br>
 
+**Crucially, it's important to note that, as a linear model, it relies on no observation state, and has no real form of 'memory' like a neural network might. It's also currently restricted to looking at the current piece and held piece, with no form of lookahead whatsoever.** The lack of lookahead isn't a restriction of the model itself, but rather of the limited time I have based on the scope of this project. I'm about to move on to training for Blitz mode, and don't have the time to dedicate to properly implementing lookahead for a linear model like this, even if I think it would be equal parts valuable and interesting to see.
+
 ### AI Training:
 
 The AI was trained on a linear, evolution-based model. An evolution model trains entire batches, or 'populations, of agents at a time, and only iteratively learns after each agent in a population is finished. This is in contrast to a standard reinforcmenet-learning model, which typically learns after each 'episode' (in our case, an episode is a full game of Sprint mode, played to either completion or top-out). Broadly speaking, the way an evolutionary algorithm works is by training an entire population of agents, measuring how well they do, and then creating an entirely new population of agents based off of the traits exhibited by the best performers in the previous generation. Evolutionary algorithms are known for their robustness, and excel at learning to solve broad, chaotic problems with large amounts of potential game states, which makes them perfect for a game like Tetris.
@@ -289,10 +291,25 @@ The current best-performing model uses the weights -1.65, 0.71, -1.25, and -0.39
 
 <br>
 <div align="center">
-  <img src="readme_embeds/Heuristic_Result.png" width="1000px">
+  <img src="readme_embeds/Heuristic_Result_10pt.png" width="1500px">
 </div>
 <br>
 
-### Drawbacks:
+These heuristics were acquired by training the AI on 3600 games (population size of 60, search size of 60). The weights being primarily negative, especially for aggregate height, means that the heuristic score for a placement is almost always a negative value. This doesn't really impact anything, however, as the AI will still choose to play the maximum value (negative value closest to 0) in the common case that no positive scores exist for a position.
+
+Finally, below is a game of Sprint mode successfully cleared by the AI in 101 pieces:
+
+<br>
+<div align="center">
+  <img src="readme_embeds/Successful_Sprint_Clear.gif" width="600px">
+</div>
+<br>
+
+### Preliminary Analysis:
+
+A 101-piece clear is on the high-performing side of what the trained AI is capable of, seeing as it's only a single piece off of a 'perfect' game of Sprint. In training, the AI consistently clears 40 lines after placing between 100~115 pieces, with a median somewhere around 106 or 107. Needless to say, this is a very promising result, and I'm happy with the outcome. That said, I'm also of the belief that it's capable of performing much better. As stated in the [Decision-Making](#decision-making) section, the AI currently only makes decisions based on either the current piece or the held piece. This classifies it as what's known as a 'greedy algorithm'— one which prioritizes immediate reward over future reward, except that in our case, it isn't that the AI doesn't value future reward, but that it isn't aware moves past the current one exist in the first place. While I doubt any form of lookahead would do much to improve it's play for the majority of piece placements, I *do* believe that it would have a marked effect on the final few pieces it places before a clear, allowing it to more consistently minimize the number of pieces it has to place before clearing that last, 40th line.
+
+In a development that I expected, the AI cares next to nothing for any form of pattern stacking. The way it stacks is much closer to what's called 'freeform stacking', or else 'Korean stacking', named after the region of players who popularized the technique. The idea behind Korean stacking is to eschew any sort of consistent pattern, and instead place each piece in the best place a player can imagine. An idea that's almost exactly reflected in the way the AI was trained. While not a very popular method of stacking among humans, it's considered theoretically sound in that there's no real strategic flaw to be had. In fact, it's considered more optimal than pattern stacking when concerned only with piece placements. Its main drawbacks compared to a pattern such as 6–3 are twofold: it takes more actions per piece placement on average, and it takes more thought to properly execute. The latter, in particular, is a human weakness that the AI doesn't have to grapple with. If I have extra time down the line, I'd like to explore training the AI to win a 40-line sprint in the fewest game actions to see if it settles on any sort of favored pattern, but I'm not sure I'll be able to do so before the block is up.
+
 
 
