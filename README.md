@@ -79,7 +79,7 @@ An executable version of the script, compiled with [PyInstaller,](https://pyinst
 
 ### Start Menu:
 
-![Start Menu](readme_images/Mode_Select.PNG)
+![Start Menu](readme_embeds/Mode_Select.PNG)
 
 The mode select screen offers the player two primary gameplay modes in Sprint and Blitz, as well as a debug/practice mode. It also features a button with which to quit the game, and a checkbox labeled 'Advanced Controls'.
 
@@ -89,7 +89,7 @@ The advanced controls checkbox, if made active before starting any gameplay mode
 
 ### Gameplay and Controls:
 
-![Gameplay](readme_images/Gameplay.PNG)
+![Gameplay](readme_embeds/Gameplay.PNG)
 
 The game is operated by keyboard controls, which are as follows:
 
@@ -111,6 +111,6 @@ There are a few UI indicators of note:
 
 ### End Screen:
 
-![End Screen](readme_images/Sprint%20Clear.PNG)
+![End Screen](readme_embeds/Sprint%20Clear.PNG)
 
 Upon the conclusion of a game, whether through successful clearance or a topout, an end screen will appear displaying relevant statistics, as well as offering the player two buttons: one will return them to the mode-select menu, while the other will quit the game.
