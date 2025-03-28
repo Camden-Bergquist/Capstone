@@ -2,7 +2,7 @@ import torch
 from evotorch import Problem, Solution
 from evotorch.algorithms import SNES
 from evotorch.logging import StdOutLogger
-from sprint_env import SprintHeuristicEnv
+from sprint_env_lookahead import SprintHeuristicEnv
 import numpy as np
 
 # Define the lightweight problem
@@ -11,7 +11,7 @@ class HeuristicTetrisProblem(Problem):
         super().__init__(
             objective_sense="max",
             solution_length=4,  # a, b, c, d
-            initial_bounds=(-1.0, 1.0)
+            initial_bounds=(-5.0, 5.0)
         )
         self.env = SprintHeuristicEnv()
 
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     problem = HeuristicTetrisProblem()
 
     print("[SETUP] Initializing optimizer...")
-    searcher = SNES(problem, popsize=50, stdev_init=0.15)
+    searcher = SNES(problem, popsize=50, stdev_init=1.0)
     logger = StdOutLogger(searcher)
 
     print("[TRAINING] Starting evolutionary search...")

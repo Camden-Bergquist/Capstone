@@ -1,5 +1,5 @@
 import torch
-from sprint_env import SprintHeuristicEnv
+from sprint_env_lookahead import SprintHeuristicEnv
 from debug_env import DebugHeuristicEnv
 
 # Article's heuristic weights
