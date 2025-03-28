@@ -315,8 +315,22 @@ All that said, while the human stacking-strategy the AI's decision-making most c
 
 <br>
 <div align="center">
-  <img src="readme_embeds/Strange_Sprint_Placement.png" width="600px">
+  
+<table>
+  <tr>
+    <td align="center">
+      <img src="readme_embeds/Strange_Sprint_Placement.png" width="500px"><br>
+      <em>A seeming mistake.</em>
+    </td>
+    <td style="width: 100px;"></td> <!-- spacer cell -->
+    <td align="center">
+      <img src="readme_embeds/Strange_Sprint_Stacking_2.png" width="500px"><br>
+      <em>The AI resolves this 'problem' by building up to the right.</em>
+    </td>
+  </tr>
+</table>
+
 </div>
 <br>
 
-A human player adhering to a Korean-stacking strategy would never make the move above.
+A human player adhering to a Korean-stacking strategy would never make the move above, as it significantly limits future piece placements and blocks off the well present in the matrix. The AI refutes that it's a problem in the first place, and instead continues to stack on the right side of the matrix like nothing happened. This works well for it, of course, seeing as it managed a victory in 101 pieces, though admittedly, the T-piece placement featured above is likely an objective mistake, human agent or otherwise, as it reduces the 'acceptable' placements for future pieces by preventing the player (who doesn't ever want to soft-drop in Sprint mode) from hard-dropping a piece in column 5. This behavior is likely something that would be resolved, to the point of being completely eliminated, with proper, multi-depth lookahead, and so lookahead once again seems to be the limiting factor for this heuristic-based model.
