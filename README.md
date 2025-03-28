@@ -297,14 +297,18 @@ The current best-performing model uses the weights -1.65, 0.71, -1.25, and -0.39
 
 These heuristics were acquired by training the AI on 3600 games (population size of 60, search size of 60). The weights being primarily negative, especially for aggregate height, means that the heuristic score for a placement is almost always a negative value. This doesn't really impact anything, however, as the AI will still choose to play the maximum value (negative value closest to 0) in the common case that no positive scores exist for a position.
 
-Finally, below is a game of Sprint mode successfully cleared by the AI in 102 pieces:
+Finally, below is a game of Sprint mode successfully cleared by the AI in 101 pieces:
 
 <br>
 <div align="center">
-  <img src="readme_embeds/Successful_Sprint_Clear.gif" width="750px">
+  <img src="readme_embeds/Successful_Sprint_Clear.gif" width="600px">
 </div>
 <br>
 
 ### Preliminary Analysis:
+
+A 101-piece clear is on the high-performing side of what the trained AI is capable of, seeing as it's only a single piece off of a 'perfect' game of Sprint. In training, the AI consistently clears 40 lines after placing between 100~115 pieces, with a median somewhere around 106 or 107. Needless to say, this is a very promising result, and I'm happy with the outcome. That said, I'm also of the belief that it's capable of performing much better. As stated in the [Decision-Making](#decision-making) section, the AI currently only makes decisions based on either the current piece or the held piece. This classifies it as what's known as a 'greedy algorithm'— one which prioritizes immediate reward over future reward, except that in our case, it isn't that the AI doesn't value future reward, but that it isn't aware moves past the current one exist in the first place. While I doubt any form of lookahead would do much to improve it's play for the majority of piece placements, I *do* believe that it would have a marked effect on the final few pieces it places before a clear, allowing it to more consistently minimize the number of pieces it has to place before clearing that last, 40th line.
+
+In a development that I expected, the AI cares next to nothing for any form of pattern stacking.
 
 
