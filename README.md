@@ -279,6 +279,8 @@ Finally, it chooses the option with the highest total heuristic score given its 
 </div>
 <br>
 
+**Crucially, it's important to note that, as a linear model, it relies on no observation state, and has no real form of 'memory' like a neural network might. It's also currently restricted to looking at the current piece and held piece, with no form of lookahead whatsoever.** The lack of lookahead isn't a restriction of the model itself, but rather of the limited time I have based on the scope of this project. I'm about to move on to training for Blitz mode, and don't have the time to dedicate to properly implementing lookahead for a linear model like this, even if I think it would be equal parts valuable and interesting to see.
+
 ### AI Training:
 
 The AI was trained on a linear, evolution-based model. An evolution model trains entire batches, or 'populations, of agents at a time, and only iteratively learns after each agent in a population is finished. This is in contrast to a standard reinforcmenet-learning model, which typically learns after each 'episode' (in our case, an episode is a full game of Sprint mode, played to either completion or top-out). Broadly speaking, the way an evolutionary algorithm works is by training an entire population of agents, measuring how well they do, and then creating an entirely new population of agents based off of the traits exhibited by the best performers in the previous generation. Evolutionary algorithms are known for their robustness, and excel at learning to solve broad, chaotic problems with large amounts of potential game states, which makes them perfect for a game like Tetris.
@@ -289,10 +291,20 @@ The current best-performing model uses the weights -1.65, 0.71, -1.25, and -0.39
 
 <br>
 <div align="center">
-  <img src="readme_embeds/Heuristic_Result.png" width="1000px">
+  <img src="readme_embeds/Heuristic_Result_10pt.png" width="1500px">
 </div>
 <br>
 
-### Drawbacks:
+These heuristics were acquired by training the AI on 3600 games (population size of 60, search size of 60). The weights being primarily negative, especially for aggregate height, means that the heuristic score for a placement is almost always a negative value. This doesn't really impact anything, however, as the AI will still choose to play the maximum value (negative value closest to 0) in the common case that no positive scores exist for a position.
+
+Finally, below is a game of Sprint mode successfully cleared by the AI in 102 pieces:
+
+<br>
+<div align="center">
+  <img src="readme_embeds/Successful_Sprint_Clear.gif" width="750px">
+</div>
+<br>
+
+### Preliminary Analysis:
 
 
