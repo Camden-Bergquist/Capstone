@@ -25,6 +25,9 @@
     - [Pattern Stacking](#pattern-stacking)
     - [Hard Drops vs Soft Drops](#hard-drops-vs-soft-drops) 
   - [AI Reward and General Methodology](#ai-reward-and-general-methodology)
+    - [Reward Methodology](#reward-methodology)
+    - [Reward Structure](#reward-structure)
+    - [Decision-Making](#decision-making) 
   - [AI Training](#ai-training)
   - [Result](#result)
   - [Drawbacks](#drawbacks)
@@ -201,10 +204,80 @@ Each time the AI's game ends – whether by topping out or by clearing 40 lines 
 
 If, instead, the AI loses by topping out, then it recieves additional rewards based on the number of lines cleard and the number of pieces placed, minus a given offset:
 
-![sprint-reward](https://latex.codecogs.com/svg.image?\bg{black}\text{Total&space;Reward}=pieces\_placed\;&plus;\;(lines\_cleared\;\cdot\;5)\;-550)
+<br>
+<div align="center">
+  <img src="readme_embeds/Sprint_Rewards.png" width="1200px">
+</div>
+<br>
+
+The offset of -550 allows the AI to be rewarded for placing more pieces if it loses – ensuring that it attempts to survive longer – as well as for line clears, without ever running the risk of a loss being considered 'better' or more rewarding than a win.
 
 #### Decision-Making:
 
+At first, I attempted to train a neural-network model on the game, but, after little success, I went in search of other potential avenues. In a [2013 blog post on a similar project,](https://codemyroad.wordpress.com/2013/04/14/tetris-ai-the-near-perfect-player/) author Yiyuan Lee describes a linear, heuristic-based model that assigns weights to four heuristics for possible piece placements, which I liked the look of and decided to implement for myself.
+
+The process is as follows: 
+
+First, the AI compiles a list of all possible hard drops for a given piece (as well as the held piece, so long as it's of a different type than the active piece).
+
+<br>
+<div align="center">
+  
+<table>
+  <tr>
+    <td align="center">
+      <img src="readme_embeds/I_Piece_Horizontal_Drops.PNG" width="250px"><br>
+      <em>All possible horizontal drop locations for the I-piece.</em>
+    </td>
+    <td style="width: 100px;"></td> <!-- spacer cell -->
+    <td align="center">
+      <img src="readme_embeds/I_Piece_Vertical_Drops.PNG" width="250px"><br>
+      <em>All possible vertical drop locations for the I-piece.</em>
+    </td>
+  </tr>
+</table>
+
+</div>
+<br>
+
+Then, it evaluates each option by multiplying each of its current weights by one of the four heuristics calculated on a drop location: number of holes present, number of lines cleared, aggregate column height, and the sum of the absolute differences between adjacent column heights. These weights start out as random values, and the idea is that, over time, the AI will learn how much 'importance' to assign to each heuristic.
+
+<br>
+<div align="center">
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="readme_embeds/Heuristics_Example_Annotated.png" width="250px"><br>
+      <em>Red numbers are holes, blue are lines cleared, and yellow are column heights.</em>
+    </td>
+  </tr>
+</table>
+
+</div>
+<br>
+
+Finally, it chooses the option with the highest total heuristic score given its current weights, before executing that placement.
+
+<br>
+<div align="center">
+  
+<table>
+  <tr>
+    <td align="center">
+      <img src="readme_embeds/I_Piece_Selected_Drop.PNG" width="250px"><br>
+      <em>It chooses what it considers the 'best' move.</em>
+    </td>
+    <td style="width: 100px;"></td> <!-- spacer cell -->
+    <td align="center">
+      <img src="readme_embeds/Selected_Drop_Aftermath.PNG" width="250px"><br>
+      <em>The piece is placed and the cycle is restarted.</em>
+    </td>
+  </tr>
+</table>
+
+</div>
+<br>
 
 ### AI Training:
 
