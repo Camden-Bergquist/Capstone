@@ -325,7 +325,7 @@ All that said, while the human stacking-strategy the AI's decision-making most c
     <td style="width: 100px;"></td> <!-- spacer cell -->
     <td align="center">
       <img src="readme_embeds/Strange_Sprint_Stacking_2.png" width="500px"><br>
-      <em>The AI resolves this 'problem' by building up to the right.</em>
+      <em>The AI resolves this by building to the right.</em>
     </td>
   </tr>
 </table>
