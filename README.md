@@ -311,5 +311,12 @@ A 101-piece clear is on the high-performing side of what the trained AI is capab
 
 In a development that I expected, the AI cares next to nothing for any form of pattern stacking. The way it stacks is much closer to what's called 'freeform stacking', or else 'Korean stacking', named after the region of players who popularized the technique. The idea behind Korean stacking is to eschew any sort of consistent pattern, and instead place each piece in the best place a player can imagine. An idea that's almost exactly reflected in the way the AI was trained. While not a very popular method of stacking among humans, it's considered theoretically sound in that there's no real strategic flaw to be had. In fact, it's considered more optimal than pattern stacking when concerned only with piece placements. Its main drawbacks compared to a pattern such as 6–3 are twofold: it takes more actions per piece placement on average, and it takes more thought to properly execute. The latter, in particular, is a human weakness that the AI doesn't have to grapple with. If I have extra time down the line, I'd like to explore training the AI to win a 40-line sprint in the fewest game actions to see if it settles on any sort of favored pattern, but I'm not sure I'll be able to do so before the block is up.
 
+All that said, while the human stacking-strategy the AI's decision-making most closely reflects is Korean stacking, it's still different in its own right. Consider the situation below.
 
+<br>
+<div align="center">
+  <img src="readme_embeds/Strange_Sprint_Placement.png" width="600px">
+</div>
+<br>
 
+A human player adhering to a Korean-stacking strategy would never make the move above.
