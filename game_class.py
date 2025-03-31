@@ -216,9 +216,6 @@ class TetrisGame:
         # **Spawn a new piece from the updated queue**
         self.current_piece_type, self.current_piece, self.current_rotation = self.spawn_piece()
 
-        # Increment piece counter.
-        self.total_pieces_placed += 1
-
         # **Reset hold usage (holding is allowed again)**
         self.hold_used = False
 
