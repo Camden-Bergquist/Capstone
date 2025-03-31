@@ -114,8 +114,20 @@ class MCTS:
         root.expand(priors, valid_actions)
 
         for action, child in root.children.items():
-            value = float(child.game.score)
-            child.backup(value)
+            best_score = float('-inf')
+            action_dict, _ = child.game.get_all_viable_hard_drops()
+            for second_action in action_dict:
+                sim_game = child.game.clone()
+                apply_action(sim_game, second_action)
+                if sim_game.game_over and sim_game.total_pieces_placed > 0:
+                    continue
+                score = float(sim_game.score)
+                best_score = max(best_score, score)
+
+            if best_score == float('-inf'):
+                best_score = float(child.game.score)
+
+            child.backup(best_score)
 
         if not root.children:
             print("[MCTS WARNING] All moves led to top-out. Selecting random action.")
@@ -124,10 +136,11 @@ class MCTS:
             apply_action(sim_game, random_action)
             root.children[random_action] = Node(sim_game, parent=root, prior=1.0, action=random_action)
 
-        print("\n[MCTS] Action Scores and Visit Counts:")
+        # Debug code:
+        """ print("\n[MCTS] Action Scores and Visit Counts:")
         for action, child in root.children.items():
             print(f"Action: {action}, Score: {child.game.score}, Visits: {child.visit_count}")
-        print("-" * 40)
+        print("-" * 40) """
 
         return root
 

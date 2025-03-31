@@ -71,7 +71,7 @@ class BlitzEnv(gym.Env):
         info = {}
 
         # Time between actions (comment out when training)
-        time.sleep(0.2)
+        # time.sleep(0.2)
 
         return obs, reward, done, info
 
