@@ -29,8 +29,8 @@ class BlitzEnv(gym.Env):
         dx, rotation, hold = action_tuple
 
         # Small sleep on startup
-        # if self.steps == 1:
-        #    time.sleep(2.0)
+        if self.steps == 1:
+            time.sleep(2.0)
 
         # Hold
         if hold:
@@ -47,10 +47,8 @@ class BlitzEnv(gym.Env):
                 for _ in range(3):
                     self.game.game_step(3)
 
-        # --- Horizontal movement or hold ---
-        if dx == "Hold":
-            self.game.game_step(7)
-        elif isinstance(dx, int):
+        # --- Horizontal movement---
+        if isinstance(dx, int):
             if dx < 0:
                 for _ in range(abs(dx)):
                     self.game.game_step(1)
@@ -73,7 +71,7 @@ class BlitzEnv(gym.Env):
         info = {}
 
         # Time between actions (comment out when training)
-        # time.sleep(0.1)
+        time.sleep(0.2)
 
         return obs, reward, done, info
 

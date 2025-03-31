@@ -3,6 +3,7 @@ import numpy as np
 import random
 import time
 import threading
+import copy
 
 class TetrisGame:
     def __init__(self, render = True, game_mode = None):
@@ -59,6 +60,7 @@ class TetrisGame:
         self.lock_reward = 0 # Counts the number of occupied cells in the row each mino of a piece occupies, and then returns it for AI reward.
         self.flat_placement = False # Set to true if none of the spaces immediately under a piece are empty. For AI reward.
         self.height_gap = False # Set to true if the bottom-most space a piece occupies is 8 or more spaces above the next-highest filled grid space.
+        self.most_recent_score = 0 # To be used for Blitz training.
 
         # Colors
         self.BLACK = (0, 0, 0)
@@ -610,14 +612,19 @@ class TetrisGame:
         # Point assignment:
         if not has_b2b or not self.b2b: # No self.b2b
             self.score += score_awarded
+            self.most_recent_score = score_awarded
         elif has_b2b and self.b2b and not unique_b2b: # Non-PC self.b2b. Must have had self.b2b and also not broken it with the clear.
             self.score += (score_awarded * 1.5)
+            self.most_recent_score = score_awarded
         else: # PC self.b2b
             self.score += (score_awarded + unique_b2b)
+            self.most_recent_score = score_awarded
 
         # Finally, assign bonus points for combo and round self.score to nearest whole number to avoid floating point shenanigans
         self.score += (50 * self.clear_combo)
         self.score = round(self.score)
+        self.most_recent_score += (50 * self.clear_combo)
+        self.most_recent_score = round(self.most_recent_score)
 
         # Increment combo counter only *after* adding the combo self.score
         if num_cleared > 0:
@@ -2051,8 +2058,6 @@ class TetrisGame:
 
         return checkbox_rect  # <-- just return the rectangle for click detection
 
-
-
     def reset_game_state(self):
 
         # Reset self.grid and movement states
@@ -2071,6 +2076,7 @@ class TetrisGame:
 
         # Reset self.score and stats
         self.score = 0
+        self.most_recent_score = 0
         self.total_pieces_placed = 0
         self.b2b = False
         self.clear_combo = 0
@@ -2108,6 +2114,36 @@ class TetrisGame:
 
         # Re-initialize current piece
         self.current_piece_type, self.current_piece, self.current_rotation = self.spawn_piece()
+
+
+    def clone(self):
+        # Create a new instance without rendering or timers
+        new_game = TetrisGame(render=False, game_mode=self.game_mode)
+
+        # Core gameplay state
+        new_game.grid = np.copy(self.grid)
+        new_game.score = self.score
+        new_game.lines_cleared = self.lines_cleared
+        new_game.total_pieces_placed = self.total_pieces_placed
+        new_game.game_over = self.game_over
+
+        # Current piece info (deepcopy only for this field)
+        new_game.current_piece = copy.deepcopy(self.current_piece)
+        new_game.current_piece_type = self.current_piece_type
+        new_game.current_rotation = self.current_rotation
+
+        # Held and upcoming pieces
+        new_game.held_piece = self.held_piece
+        new_game.next_queue = list(self.next_queue)
+        new_game.primary_bag = list(self.primary_bag) if isinstance(self.primary_bag, (list, tuple)) else self.primary_bag
+        new_game.secondary_bag = list(self.secondary_bag) if isinstance(self.secondary_bag, (list, tuple)) else self.secondary_bag
+
+        # Score multipliers
+        new_game.b2b = self.b2b
+        new_game.clear_combo = self.clear_combo
+
+        return new_game
+
 
 
     def set_game_mode(self, mode):
