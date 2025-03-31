@@ -156,6 +156,12 @@ class TetrisGame:
             if r >= 0:
                 self.grid[r, c] = self.current_piece_type  
 
+        # Increment or decrement total pieces placed
+        if self.game_mode == "Blitz":
+            self.total_pieces_placed -= 1
+        else:
+            self.total_pieces_placed += 1
+
         # Identify occupied rows
         occupied_rows = set()
         for r, _ in self.current_piece:
@@ -224,6 +230,10 @@ class TetrisGame:
         if self.RENDER:
             self.draw_grid()
             pygame.display.flip()
+
+        # Handle game over if AI is out of pieces to place
+        if self.total_pieces_placed <= 0:
+            self.game_over = True
 
 
     def move_piece(self, dx, dy):
@@ -2068,10 +2078,16 @@ class TetrisGame:
         self.b2b = False
         self.clear_combo = 0
         self.start_time = None
+
         if self.game_mode == "Sprint":
             self.lines_cleared = 40
         else:
             self.lines_cleared = 0
+        
+        if self.game_mode == "Blitz":
+            self.total_pieces_placed = 600
+        else:
+            self.total_pieces_placed = 0
 
         # Reset rotation-related flags
         self.qualified_for_T_spin = False
@@ -2106,6 +2122,8 @@ class TetrisGame:
 
         if mode == "Sprint":
             self.lines_cleared = 40
+        elif mode == "Blitz":
+            self.total_pieces_placed = 600
 
         self.main()  # Start the game
 
