@@ -2144,8 +2144,6 @@ class TetrisGame:
 
         return new_game
 
-
-
     def set_game_mode(self, mode):
         """Sets the global game mode, initializes variables differently based on mode, and starts the game."""
 
@@ -2276,6 +2274,53 @@ class TetrisGame:
                     exit()
 
             pygame.display.flip()
+
+    def to_cold_clear_state(self):
+        """
+        Converts the current game state to a Cold Clear-compatible dictionary.
+        Assumes:
+        - self.grid is a (24, 10) NumPy array
+        - "X" means empty; any other value means occupied
+        """
+        padded_rows = 40
+        offset = padded_rows - self.ROWS  # self.ROWS is 24
+
+        # Initialize a 40x10 grid (False = empty, True = filled)
+        cells_40 = [[False for _ in range(self.COLS)] for _ in range(padded_rows)]
+
+        # Copy grid into the bottom of the 40-row grid
+        for y in range(self.ROWS):
+            for x in range(self.COLS):
+                filled = self.grid[y, x] != "X"
+                cells_40[y + offset][x] = filled
+
+        # Compute column heights for each column
+        column_heights = [0 for _ in range(self.COLS)]
+        for x in range(self.COLS):
+            for y in reversed(range(padded_rows)):
+                if cells_40[y][x]:
+                    column_heights[x] = y + 1
+                    break
+
+        # Normalize piece representation (e.g., "I", "T", etc.)
+        def normalize(piece):
+            return piece.upper() if piece else None
+
+        # Estimate remaining 7-bag contents (fallback logic)
+        all_pieces = set("IJLOSTZ")
+        spawned = set(self.primary_bag + self.secondary_bag)
+        remaining_bag = list(all_pieces - spawned)
+
+        return {
+            "cells": cells_40,
+            "column_heights": column_heights,
+            "hold_piece": normalize(self.held_piece),
+            "next_pieces": [normalize(p) for p in self.next_queue],
+            "combo": self.clear_combo,
+            "b2b_bonus": self.b2b,
+            "bag": remaining_bag
+        }
+
 
     def main(self):
         running = True
