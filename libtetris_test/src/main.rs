@@ -11,6 +11,7 @@ struct Input {
     field: Vec<Vec<u8>>,     // 40 rows × 10 columns, bottom to top
     bag: Vec<String>,        // Remaining 7-bag pieces
     hold: Option<String>,    // Hold piece, or null
+    next: Vec<String>,
     b2b: bool,
     combo: u32,
 }
@@ -56,7 +57,13 @@ fn main() {
     let hold_piece = input.hold.map(|s| parse_piece(&s));
 
     // Create board with full state
-    let board = Board::new_with_state(field, bag, hold_piece, input.b2b, input.combo);
+    let mut board = Board::new_with_state(field, bag, hold_piece, input.b2b, input.combo);
+
+    // Adds to queue & updates bag
+    for s in &input.next {
+        let p = parse_piece(s);
+        board.add_next_piece(p);  
+    }
 
     // Active piece
     let piece = parse_piece(&input.piece);
