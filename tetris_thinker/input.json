@@ -45,6 +45,6 @@
   "bag": ["I", "O", "J", "L", "S", "Z", "T"],
   "next": ["Z", "O", "I", "L", "J"],
   "hold": null,
-  "b2b": false,
+  "b2b": true,
   "combo": 0
 }

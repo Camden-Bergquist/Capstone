@@ -1,5 +1,5 @@
 use libtetris::{
-    chooser::choose_best_board, evaluate::Standard, find_moves, Board, MovementMode, Piece, Row, SpawnRule
+    chooser::ScoredBoard, evaluate::Standard, find_moves, Board, MovementMode, Piece, Row, SpawnRule
 };
 use enumset::EnumSet;
 use serde::Deserialize;
@@ -15,7 +15,7 @@ struct Input {
     combo: u32,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 struct Output {
     x: i32,
     y: i32,
@@ -81,49 +81,63 @@ fn main() {
     let config = Standard::default();
 
     let mut scored_candidates = Vec::new();
+    let mut all_outputs = Vec::new();
 
-    let result: Vec<Output> = placements
-        .iter()
-        .map(|p| {
-            let mut new_board = board.clone();
-            let lock_result = new_board.lock_piece(p.location);
-            print_board(&new_board);
-            println!(
-                "x: {}, y: {}, rotation: {}, tspin: {}, lines cleared: {}, cleared rows: {:?}\n",
-                p.location.x,
-                p.location.y,
-                p.location.kind.1 as u8,
-                format!("{:?}", p.location.tspin),
-                lock_result.cleared_lines.len(),
-                lock_result.cleared_lines
-            );
-
-            scored_candidates.push((new_board.clone(), lock_result.clone(), 0, piece));
-
-            Output {
-                x: p.location.x,
-                y: p.location.y,
-                rotation: p.location.kind.1 as u8,
-                inputs: p.inputs.movements.iter().map(|m| format!("{:?}", m)).collect(),
-                tspin: format!("{:?}", p.location.tspin),
-                lines_cleared: lock_result.cleared_lines.len(),
-                cleared_rows: lock_result.cleared_lines.to_vec(),
-            }
-        })
-        .collect();
-
-    println!("{}", serde_json::to_string_pretty(&result).unwrap());
-
-    if let Some(best) = choose_best_board(scored_candidates, &config) {
-        println!("\nBEST MOVE:");
-        print_board(&best.board);
+    for p in &placements {
+        let mut new_board = board.clone();
+        let lock_result = new_board.lock_piece(p.location);
+        print_board(&new_board);
         println!(
-            "score: {}, lines cleared: {}, placement kind: {:?} (b2b: {}, combo: {:?})",
-            best.score,
-            best.lock.cleared_lines.len(),
-            best.lock.placement_kind,
-            best.lock.b2b,
-            best.lock.combo
+            "x: {}, y: {}, rotation: {}, tspin: {}, lines cleared: {}, cleared rows: {:?}\n",
+            p.location.x,
+            p.location.y,
+            p.location.kind.1 as u8,
+            format!("{:?}", p.location.tspin),
+            lock_result.cleared_lines.len(),
+            lock_result.cleared_lines
         );
+
+        let output = Output {
+            x: p.location.x,
+            y: p.location.y,
+            rotation: p.location.kind.1 as u8,
+            inputs: p.inputs.movements.iter().map(|m| format!("{:?}", m)).collect(),
+            tspin: format!("{:?}", p.location.tspin),
+            lines_cleared: lock_result.cleared_lines.len(),
+            cleared_rows: lock_result.cleared_lines.to_vec(),
+        };
+
+        scored_candidates.push(((new_board, lock_result.clone(), 0, piece), output.clone()));
+        all_outputs.push(output);
     }
+
+    println!("{}", serde_json::to_string_pretty(&all_outputs).unwrap());
+
+    let (best_board, best_output) = scored_candidates
+        .into_iter()
+        .map(|((board, lock, mt, piece), output)| {
+            let (transient, reward) = config.evaluate_board(&board, &lock, mt, piece);
+            let score = transient + reward;
+            (ScoredBoard { board, lock, score }, output)
+        })
+        .max_by_key(|(sb, _)| sb.score)
+        .expect("No valid boards generated");
+
+    println!("\nBEST MOVE:");
+    print_board(&best_board.board);
+    println!(
+        "score: {}, lines cleared: {}, placement kind: {:?} (b2b: {}, combo: {:?})",
+        best_board.score,
+        best_board.lock.cleared_lines.len(),
+        best_board.lock.placement_kind,
+        best_board.lock.b2b,
+        best_board.lock.combo
+    );
+    println!("inputs for best move: {:?}", best_output.inputs);
+    
+    std::fs::write(
+        "selected_actions.json",
+        serde_json::to_string_pretty(&best_output.inputs).unwrap(),
+    )
+    .expect("Failed to write selected_actions.json");
 }
