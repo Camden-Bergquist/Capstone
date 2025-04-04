@@ -79,15 +79,17 @@ def unpack_game_actions(filename):
     with open(filename, "r") as f:
         return json.load(f)
 
+use_established_weights = True
+
 # Define the now less-than-lightweight problem
 class HeuristicTetrisProblem(Problem):
-    def __init__(self):
+    def __init__(self, lower_bound = -100, upper_bound = 100, render_env = False):
         super().__init__(
             objective_sense="max",
             solution_length=44,  # 44 weights (technically 32 since two of them are lists).
-            initial_bounds=(-500.0, 500.0)
+            initial_bounds=(lower_bound, upper_bound)
         )
-        self.env = BlitzHeuristicEnv()
+        self.env = BlitzHeuristicEnv(render_env)
 
     def _evaluate(self, solution: Solution):
         raw_weights = solution.values.cpu().numpy() # Store the weights as a list.
@@ -122,17 +124,77 @@ class HeuristicTetrisProblem(Problem):
 
         solution.set_evals(episode_reward)
 
+
+# Training Parameters:
+use_established_weights = True
+established_weights_path = "default_cold_weights.json"
+render_environment = True
+lower_bound, upper_bound, initial_stdev = -100, 100, 15
+population_size, num_generations = 10, 10
+
 # Set up and run the search
 if __name__ == "__main__":
     print("[SETUP] Initializing Heuristic Tetris Problem...")
-    problem = HeuristicTetrisProblem()
+    problem = HeuristicTetrisProblem(lower_bound, upper_bound, render_environment)
 
-    print("[SETUP] Initializing SNES optimizer...")
-    searcher = SNES(problem, popsize=10, stdev_init=250)
+    # If weights are being imported:
+    if use_established_weights:
+        # Load predefined/pretrained weights.
+        with open(established_weights_path) as f:
+            saved_weights = json.load(f)
+
+        # Convert back to a flat list
+        established_weights = [
+            saved_weights["back_to_back"],
+            saved_weights["bumpiness"],
+            saved_weights["bumpiness_sq"],
+            saved_weights["row_transitions"],
+            saved_weights["height"],
+            saved_weights["top_half"],
+            saved_weights["top_quarter"],
+            saved_weights["jeopardy"],
+            saved_weights["cavity_cells"],
+            saved_weights["cavity_cells_sq"],
+            saved_weights["overhang_cells"],
+            saved_weights["overhang_cells_sq"],
+            saved_weights["covered_cells"],
+            saved_weights["covered_cells_sq"],
+            *saved_weights["tslot"],
+            saved_weights["well_depth"],
+            saved_weights["max_well_depth"],
+            *saved_weights["well_column"],
+            saved_weights["move_time"],
+            saved_weights["wasted_t"],
+            saved_weights["b2b_clear"],
+            saved_weights["clear1"],
+            saved_weights["clear2"],
+            saved_weights["clear3"],
+            saved_weights["clear4"],
+            saved_weights["tspin1"],
+            saved_weights["tspin2"],
+            saved_weights["tspin3"],
+            saved_weights["mini_tspin1"],
+            saved_weights["mini_tspin2"],
+            saved_weights["perfect_clear"],
+            saved_weights["combo_garbage"]
+        ]
+
+        # Convert to a torch tensor
+        init_weights = torch.tensor(established_weights, dtype=torch.float32)
+
+        # Manually set mean of SNES to this
+        print("[SETUP] Initializing SNES optimizer with established weights...")
+        searcher = SNES(problem, popsize = population_size, stdev_init = initial_stdev, center_init = init_weights)
+
+    # Use random initial weights.
+    else:
+        print("[SETUP] Initializing SNES optimizer with random weights...")
+        searcher = SNES(problem, popsize = population_size, stdev_init = initial_stdev)
+
     logger = StdOutLogger(searcher)
 
     print("[TRAINING] Starting evolutionary search...") 
-    searcher.run(10)
+    searcher.run(num_generations)
     print("[TRAINING] Finished.")
 
     best = searcher.status["best"]
@@ -144,4 +206,4 @@ if __name__ == "__main__":
     with open("tetris_thinker/input.json", 'w') as file:
         pass
     with open("tetris_thinker/weights.json", 'w') as file:
-        pass
+        json.dumps({})

@@ -5,11 +5,11 @@ from gym import spaces
 from game_class import TetrisGame
 
 class BlitzHeuristicEnv(gym.Env):
-    def __init__(self):
+    def __init__(self, render_env = False):
         super().__init__()
 
-        self.game = TetrisGame(render=True, game_mode="Blitz")
-        self.game.lines_cleared = 360 # Two pieces per second
+        self.game = TetrisGame(render = render_env, game_mode = "Blitz")
+        self.game.lines_cleared = 70 # 10 full bags. 360 would simulate two pieces per second.
         self.reset_tracker = 0
 
         self.action_space = None  # Rust script selecting move.
