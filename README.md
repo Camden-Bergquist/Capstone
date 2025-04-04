@@ -410,9 +410,9 @@ Below is a diagram outlining what I mean when I say 'corner':
 
 <br>
 <div align="center">
-  <img src="readme_embeds/T-Piece_Anatomy_Annotated.png" width="600px">
+  <img src="readme_embeds/T-Piece_Anatomy_Annotated.png" width="500px">
   <br>
-  <em>The cyan squares represent the 'front' corners, while the yellow represent the 'back' corners. The front and back of the T-piece changes as it rotates, with front and back always remaining relative to the positions indicated above.</em>
+  <em>The cyan squares represent the 'front' corners, while the yellow represent the 'back' corners. The front and back of the T-piece changes as it rotates, always remaining relative to the positions indicated above.</em>
 </div>
 <br>
 
