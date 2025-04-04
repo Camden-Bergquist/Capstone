@@ -20,17 +20,36 @@
   - [Gameplay and Controls](#gameplay-and-controls)
   - [End Screen](#end-screen)
 - [Alpha Release (Sprint Mode)](#alpha-release-sprint-mode)
-  - [Preface](#preface)
-    - [Strategy](#strategy)
-      - [Pattern Stacking](#pattern-stacking)
+  - [Preface](#preface-1)
+    - [Strategy](#strategy-1)
+      - [Pattern Stacking](#pattern-stacking-1)
       - [Hard Drops vs Soft Drops](#hard-drops-vs-soft-drops) 
-    - [AI Reward and General Methodology](#ai-reward-and-general-methodology)
-      - [Reward Methodology](#reward-methodology)
-      - [Reward Structure](#reward-structure)
-      - [Decision-Making](#decision-making) 
-    - [AI Training](#ai-training)
-    - [Result](#result)
-    - [Drawbacks](#drawbacks)
+    - [AI Reward and General Methodology](#ai-reward-and-general-methodology-1)
+      - [Reward Methodology](#reward-methodology-1)
+      - [Reward Structure](#reward-structure-1)
+      - [Decision-Making](#decision-making-1) 
+    - [AI Training](#ai-training-1)
+    - [Result](#result-1)
+    - [Drawbacks](#drawbacks-1)
+- [Beta Release (Blitz Mode)](#beta-release-blitz-mode)
+  - [Preface](#preface-2)
+  - [Strategy](#strategy-2)
+    - [Basic Line Clears](#basic-line-clears)
+    - [T-Spins](#t-spins)
+    - [Clear Bonuses](#clear-bonuses)
+      - [Combo Bonus](#combo-bonus)
+      - [Back-to-Back Bonus](#back-to-back-bonus)
+      - [Perfect Clear Bonus](#perfect-clear-bonus)
+    - [Pattern Stacking](#pattern-stacking-2)
+  - [Practical Differences from Sprint Mode](#practical-differences-from-sprint-mode)
+  - [Addressing the Problem of Computational Complexity](#addressing-the-problem-of-computational-complexity)
+  - [AI Reward and General Methodology](#ai-reward-and-general-methodology-2)
+    - [Reward Methodology](#reward-methodology-2)
+    - [Reward Structure](#reward-structure-2)
+    - [Decision-Making](#decision-making-2)
+  - [AI Training](#ai-training-2)
+  - [Result](#result-2)
+  - [Drawbacks](#drawbacks-2)
 
 ## Resource Briefing:
 ### Proposal Paper Abstract:
@@ -332,3 +351,44 @@ All that said, while the human stacking-strategy the AI's decision-making most c
 <br>
 
 A human player adhering to a Korean-stacking strategy would never make the move above, as it significantly limits future piece placements and blocks off the well present in the matrix. The AI refutes that it's a problem in the first place, and instead continues to stack on the right side of the matrix like nothing happened. This works well for it, of course, seeing as it managed a victory in 101 pieces, though admittedly, the T-piece placement featured above is likely an objective mistake, human agent or otherwise, as it reduces the 'acceptable' placements for future pieces by preventing the player (who doesn't ever want to soft-drop in Sprint mode) from hard-dropping a piece in column 5. This behavior is likely something that would be resolved, to the point of being completely eliminated, with proper, multi-depth lookahead, and so lookahead once again seems to be the limiting factor for this heuristic-based model.
+
+## Beta Release (Blitz Mode):
+
+### Preface:
+
+### Strategy:
+
+#### Basic Line Clears:
+
+#### T-Spins:
+
+#### Clear Bonuses:
+
+##### Combo Bonus:
+
+##### Back-to-Back Bonus:
+
+##### Perfect Clear Bonus:
+
+#### Pattern Stacking:
+
+### Practical Differences from Sprint Mode:
+
+### Addressing the Problem of Computational Complexity:
+
+### AI Reward and General Methodology:
+
+#### Reward Methodology:
+
+#### Reward Structure:
+
+#### Decision-Making:
+
+### AI Training:
+
+### Result:
+
+### Drawbacks:
+
+
+
