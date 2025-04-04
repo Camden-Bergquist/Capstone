@@ -438,7 +438,7 @@ If multiple lines are cleared in sequence – a clear combo – then the player 
 
 The back-to-back bonus is awarded to the player if they perform two 'difficult' line clears in a row, with no 'easy' line clears in-between. Difficult line clears include Tetrises and all forms of T-spins. This bonus is different from the combo bonus because it does not require that both clears occur one after the other. You can perform a difficult line clear, then stack a half-dozen pieces before performing another difficult clear, and still receive the bonus so long as you didn't clear any other lines in those half-dozen pieces. 
 
-The back-to-back bonus awards the player a 50% increase in the points awarded by the difficult line clear. **If you can preserve the back-to-back bonus for the entire game, it's essentially a 1.5x score multiplier, and so it's a very important part of Blitz play.**
+The back-to-back bonus awards the player a 50% increase in the points awarded by the difficult line clear. **If you can preserve the back-to-back bonus for the entire game, it's essentially a 1.5x score multiplier for little-to-no cost, and so it's a very important part of Blitz play.**
 
 ##### Perfect Clear Bonus:
 
