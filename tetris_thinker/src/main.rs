@@ -94,8 +94,11 @@ fn main() {
         },        
         _ => {},
     }
-
-    let config = Standard::default();
+    // Reads in weights from `weights.json`. If certain weights are missing, defaults to what's in `evaluate.rs`.
+    let config: Standard = {
+        let weight_data = std::fs::read_to_string("weights.json").expect("failed to read weights.json");
+        serde_json::from_str(&weight_data).expect("invalid weights.json")
+    };
     let mut scored_candidates = Vec::new();
     let mut all_outputs = Vec::new();
 

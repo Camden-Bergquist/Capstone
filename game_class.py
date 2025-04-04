@@ -1919,10 +1919,10 @@ class TetrisGame:
             minutes = int(elapsed_time // 60)
             seconds = int(elapsed_time % 60)
             milliseconds = int((elapsed_time % 1) * 10)  # Correctly scale to 0-9 range
-        if remaining_time == 0:
+        """ if remaining_time == 0:
             self.game_over_condition = "Time's Up!"
             self.game_over = True
-            self.game_over_screen()
+            self.game_over_screen() """
 
 
         # Format as MM:SS.M (single-digit milliseconds)
@@ -2107,7 +2107,7 @@ class TetrisGame:
             self.lines_cleared = 0
         
         if self.game_mode == "Blitz":
-            self.total_pieces_placed = 600
+            self.total_pieces_placed = 360
         else:
             self.total_pieces_placed = 0
 

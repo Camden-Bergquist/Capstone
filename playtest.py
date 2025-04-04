@@ -39,7 +39,7 @@ def unpack_game_actions(filename):
 game = TetrisGame(render=True, game_mode="Blitz")
 game.reset_game_state()
 
-for i in range(601):
+for i in range(361):
 
     if game.game_over:
         break
@@ -73,9 +73,13 @@ for i in range(601):
     
     game.game_step(6) # Always Hard Drop at the end of a sequence.
 
-    with open("tetris_thinker/selected_actions.json", 'w') as file:
-        pass  # Do nothing, just open and close the file to clear it
-
-
     # time.sleep(1)
+
+print("360 Moves Played!")
+
+# Empty the .json files at the end of the script.
+with open("tetris_thinker/selected_actions.json", 'w') as file:
+    pass
+with open("tetris_thinker/input.json", 'w') as file:
+    pass  # Do nothing, just open and close the file to clear it
 
