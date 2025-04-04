@@ -416,6 +416,15 @@ Below is a diagram outlining what I mean when I say 'corner':
 </div>
 <br>
 
+There are two types of T-spins. Mini T-spins, where both back corners and at least one front corner is occupied, and regular or 'full' T-spins, where both front corners and at least one back corner is occupied. There are single- and double- line clear variants for both types, as well as a triple variant exclusive to regular T-spins. The score awarded to each are as follows:
+<br>
+- Mini T-Spin Single: 200 points.
+- Mini T-Spin Double: 400 points.
+- T-Spin Single: 800 points.
+- T-Spin Double: 1200 points.
+- T-Spin Triple: 1600 points.
+
+As can be seen, at 800 points, a T-spin single is worth as much as a Tetris, with doubles and triples quickly exceeding that value. More importantly, T-spins clear fewer lines than a Tetris, which is actually a good thing in Blitz mode. Because you need to stack pieces up in order to clear a row, the more lines you clear, the more pieces you'll have to place. **This means that T-spins are even more disproportionately valuable compared to Tetrises than it may already seem, and so they form the cornerstone of high-level Blitz play.**
 
 #### Clear Bonuses:
 
