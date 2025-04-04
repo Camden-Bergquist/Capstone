@@ -12,13 +12,13 @@ class TetrisGame:
         self.COLS, self.ROWS = 10, 24  # Play matrix dimensions
         self.VISIBLE_ROWS = 20 # Play matrix rows visible to the player
         self.GRID_WIDTH, self.GRID_HEIGHT = 300, 600
-        self.LOCK_DELAY = 250  # Lock delay in milliseconds
+        self.LOCK_DELAY = 250000  # Lock delay in milliseconds
         self.DAS = 150  # Delayed Auto-Shift in milliseconds
         self.ARR = 75  # Auto Repeat Rate in milliseconds
         self.SOFT_DROP_DAS = 75  # Delay before repeated soft drops start (in milliseconds)
         self.SOFT_DROP_ARR = 35  # Time between additional soft drops when held (in milliseconds)
-        self.GRAVITY = 100  # Default fall speed in milliseconds (1000ms = 1 second per row)
-        self.LOCKOUT_OVERRIDE = 2000  # Time in milliseconds before forced lockout
+        self.GRAVITY = 100000  # Default fall speed in milliseconds (1000ms = 1 second per row)
+        self.LOCKOUT_OVERRIDE = 200000  # Time in milliseconds before forced lockout
         self.RENDER = render # Boolean value for whether or not to render the game.
         self.TICK_BASED = False # Gets set to True if tick() is called.
 
@@ -135,11 +135,13 @@ class TetrisGame:
         self.game_over = False
 
         self.screen = None
+
         # Initialize pygame if render is set to True
         if render:
             pygame.init()
             self.screen = pygame.display.set_mode((self.DEFAULT_WIDTH, self.DEFAULT_HEIGHT), pygame.RESIZABLE)
             pygame.display.set_caption("Tetris")
+            
 
     def is_valid_position(self, piece):
         """Check if a piece's position is valid (inside bounds and not colliding)."""
@@ -274,6 +276,23 @@ class TetrisGame:
 
         # Lock immediately after reaching the lowest position
         self.lock_piece()
+
+    def sonic_drop(self):
+        """Instantly moves the piece downward until it collides, but *doesn't* lock.
+        Awards 1 point for each space the piece moves down."""
+
+        drop_distance = 0  # Track how many spaces the piece moves
+
+        while self.move_piece(0, 1):  # Move down until collision
+            drop_distance += 1  # Count the movement steps
+
+        # Only disqualify T-spin if the piece actually moved downward
+        if drop_distance > 0:
+            self.qualified_for_T_spin = False 
+            self.wall_kick_5_used = False # Only disqualify if it actually moves
+
+        # Award hard drop points (1 point per space moved)
+        self.score += drop_distance * 1
 
     # Doesn't look like this is being called ever. Remove?
     def soft_drop_or_lock(self):
@@ -2275,52 +2294,36 @@ class TetrisGame:
 
             pygame.display.flip()
 
-    def to_cold_clear_state(self):
-        """
-        Converts the current game state to a Cold Clear-compatible dictionary.
-        Assumes:
-        - self.grid is a (24, 10) NumPy array
-        - "X" means empty; any other value means occupied
-        """
+    def game_state_to_dict(self):
         padded_rows = 40
         offset = padded_rows - self.ROWS  # self.ROWS is 24
 
-        # Initialize a 40x10 grid (False = empty, True = filled)
-        cells_40 = [[False for _ in range(self.COLS)] for _ in range(padded_rows)]
+        # Initialize a 40x10 grid (0 = empty, 1 = filled)
+        cells_40 = [[0 for _ in range(self.COLS)] for _ in range(padded_rows)]
 
         # Copy grid into the bottom of the 40-row grid
         for y in range(self.ROWS):
             for x in range(self.COLS):
-                filled = self.grid[y, x] != "X"
+                filled = 1 if self.grid[y, x] != "X" else 0  # Convert False to 0, True to 1
                 cells_40[y + offset][x] = filled
 
-        # Compute column heights for each column
-        column_heights = [0 for _ in range(self.COLS)]
-        for x in range(self.COLS):
-            for y in reversed(range(padded_rows)):
-                if cells_40[y][x]:
-                    column_heights[x] = y + 1
-                    break
+        # Vertically mirror the grid (bottom row becomes top)
+        field = cells_40[::-1]
 
-        # Normalize piece representation (e.g., "I", "T", etc.)
-        def normalize(piece):
-            return piece.upper() if piece else None
-
-        # Estimate remaining 7-bag contents (fallback logic)
-        all_pieces = set("IJLOSTZ")
-        spawned = set(self.primary_bag + self.secondary_bag)
-        remaining_bag = list(all_pieces - spawned)
+        # Convert other non-serializable objects to lists if necessary
+        bag = list(self.primary_bag) if isinstance(self.primary_bag, np.ndarray) else self.primary_bag
+        next_queue = list(self.next_queue) if isinstance(self.next_queue, np.ndarray) else self.next_queue
+        held_piece = str(self.held_piece) if isinstance(self.held_piece, np.ndarray) else self.held_piece
 
         return {
-            "cells": cells_40,
-            "column_heights": column_heights,
-            "hold_piece": normalize(self.held_piece),
-            "next_pieces": [normalize(p) for p in self.next_queue],
-            "combo": self.clear_combo,
-            "b2b_bonus": self.b2b,
-            "bag": remaining_bag
+            "piece": self.current_piece_type,
+            "field": field,  # The grid stays as a list of lists with 0s and 1s
+            "bag": bag,
+            "next": next_queue,
+            "hold": held_piece,
+            "b2b": self.b2b,
+            "combo": self.clear_combo
         }
-
 
     def main(self):
         running = True
@@ -2414,15 +2417,17 @@ class TetrisGame:
                 self.hard_drop() 
             case 7: # Hold
                 self.hold_piece()
+            case 8: # Sonic Drop
+                self.sonic_drop()
 
         # Handle automatic game updates like gravity at a tick speed of 10ms
         self.tick(10)
 
         # Update game-over condition for Blitz (time expiration)
-        if self.game_mode == "Blitz":
+        """ if self.game_mode == "Blitz":
             elapsed = time.time() - self.start_time
             if elapsed >= 180:  # 3 minutes
-                self.game_over = True
+                self.game_over = True """
 
 if __name__ == "__main__":
     game = TetrisGame()
