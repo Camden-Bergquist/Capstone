@@ -428,9 +428,17 @@ As can be seen, at 800 points, a T-spin single is worth as much as a Tetris, wit
 
 #### Clear Bonuses:
 
+When a line is cleared, there are three additional bonuses the player has the potential to score.
+
 ##### Combo Bonus:
 
+If multiple lines are cleared in sequence – a clear combo – then the player is awarded additional points based on the length of the combo equal to 50 points times the length of the combo. Two successive clears is a combo of length one, three for lenght two, and so on. While appreciated, the combo bonus is rather marginal, and the opportunity cost of maximizing it is too high in Blitz mode, so it often takes a back seat to the other two.
+
 ##### Back-to-Back Bonus:
+
+The back-to-back bonus is awarded to the player if they perform two 'difficult' line clears in a row, with no 'easy' line clears in-between. Difficult line clears include Tetrises and all forms of T-spins. This bonus is different from the combo bonus because it does not require that both clears occur one after the other. You can perform a difficult line clear, then stack a half-dozen pieces before performing another difficult clear, and still receive the bonus so long as you didn't clear any other lines in those half-dozen pieces. 
+
+The back-to-back bonus awards the player a 50% increase in the points awarded by the difficult line clear. **If you can preserve the back-to-back bonus for the entire game, it's essentially a 1.5x score multiplier, and so it's a very important part of Blitz play.**
 
 ##### Perfect Clear Bonus:
 
