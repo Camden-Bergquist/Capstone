@@ -53,16 +53,16 @@ impl Default for Standard {
             bumpiness_sq: -7,
             row_transitions: -5,
             height: -39,
-            top_half: -150,
-            top_quarter: -511,
+            top_half: -150, // originally -150
+            top_quarter: -511, // originally -511
             jeopardy: -11,
-            cavity_cells: -173,
-            cavity_cells_sq: -3,
-            overhang_cells: -34,
-            overhang_cells_sq: -1,
+            cavity_cells: -173, // was originally -173.
+            cavity_cells_sq: -3, // was originally -3, multiplying for testing.
+            overhang_cells: -34, // originally -34
+            overhang_cells_sq: -1, // originally -1
             covered_cells: -17,
             covered_cells_sq: -1,
-            tslot: [8, 148, 192, 407],
+            tslot: [8, 148, 192, 407], // originally [8, 148, 192, 407]
             well_depth: 57,
             max_well_depth: 17,
             well_column: [20, 23, 20, 50, 59, 21, 59, 10, -10, 24],
@@ -74,16 +74,16 @@ impl Default for Standard {
             clear2: -100,
             clear3: -58,
             clear4: 390,
-            tspin1: 121,
-            tspin2: 410,
-            tspin3: 602,
+            tspin1: 121, // originally 121
+            tspin2: 410, // originally 410
+            tspin3: 602, // originally 602
             mini_tspin1: -158,
             mini_tspin2: -93,
             perfect_clear: 999,
             combo_garbage: 150,
 
             use_bag: true,
-            timed_jeopardy: true,
+            timed_jeopardy: false, // originally True
             stack_pc_damage: false,
             sub_name: None,
         }
@@ -525,20 +525,20 @@ impl Standard {
 
         // Add bumpiness
         let (bump, bump_sq) = bumpiness(board, well);
-        transient_eval += bump;        // replace with self.bumpiness * bump later
-        transient_eval += bump_sq;     // replace with self.bumpiness_sq * bump_sq
+        transient_eval += self.bumpiness * bump;        //
+        transient_eval += self.bumpiness * bump_sq;     //
 
         // Add cavities and overhangs
         let (cavity_cells, overhang_cells) = cavities_and_overhangs(board);
-        transient_eval += cavity_cells;      // * self.cavity_cells
+        transient_eval += cavity_cells * self.cavity_cells;      // * self.cavity_cells
         transient_eval += cavity_cells * cavity_cells; // * self.cavity_cells_sq
-        transient_eval += overhang_cells;    // * self.overhang_cells
-        transient_eval += overhang_cells * overhang_cells; // * self.overhang_cells_sq
+        transient_eval += overhang_cells * self.cavity_cells_sq;    // * self.overhang_cells
+        transient_eval += overhang_cells * overhang_cells * self.overhang_cells_sq; // * self.overhang_cells_sq
 
         // Add covered cell metrics
         let (covered, covered_sq) = covered_cells(board);
-        transient_eval += covered;      // * self.covered_cells
-        transient_eval += covered_sq;   // * self.covered_cells_sq
+        transient_eval += covered * self.covered_cells;      // * self.covered_cells
+        transient_eval += covered_sq * self.covered_cells_sq;   // * self.covered_cells_sq
 
         // Add T-slot cutout estimation
         let ts = if self.use_bag {

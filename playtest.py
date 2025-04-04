@@ -39,7 +39,7 @@ def unpack_game_actions(filename):
 game = TetrisGame(render=True, game_mode="Blitz")
 game.reset_game_state()
 
-for i in range(600):
+for i in range(601):
 
     if game.game_over:
         break
@@ -56,21 +56,18 @@ for i in range(600):
     for action in action_sequence:
 
         match action:
+            case "Hold":
+                game.game_step(7)
             case "Left":
                 game.game_step(1)
-                print("Moved Left")
             case "Right":
                 game.game_step(2)
-                print("Moved Right")
             case "Ccw":
                 game.game_step(3)
-                print("Rotated Left")
             case "Cw":
                 game.game_step(4)
-                print("Rotated Right")
             case "SonicDrop":
                 game.game_step(8)
-                print("Sonic Drop")
     
     # time.sleep(0.05)
     

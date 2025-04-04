@@ -24,6 +24,7 @@ struct Output {
     tspin: String,
     lines_cleared: usize,
     cleared_rows: Vec<i32>,
+    used_hold: bool,
 }
 
 fn parse_piece(s: &str) -> Piece {
@@ -62,58 +63,83 @@ fn main() {
     }
 
     let bag: EnumSet<Piece> = input.bag.iter().map(|s| parse_piece(s)).collect();
-    let hold_piece = input.hold.map(|s| parse_piece(&s));
+    let hold_piece = input.hold.as_ref().map(|s| parse_piece(s));
 
     let mut board = Board::new_with_state(field, bag, hold_piece, input.b2b, input.combo);
-
     for s in &input.next {
         let p = parse_piece(s);
-        board.add_next_piece(p);  
+        board.add_next_piece(p);
     }
 
-    let piece = parse_piece(&input.piece);
-    let falling_piece = SpawnRule::Row19Or20
-        .spawn(piece, &board)
-        .expect("Failed to spawn piece");
+    let current_piece = parse_piece(&input.piece);
+    let mut spawn_candidates = vec![(current_piece, board.clone(), false)];
 
-    let placements = find_moves(&board, falling_piece, MovementMode::ZeroG);
+    match board.hold_piece {
+        Some(hold_piece_type) if hold_piece_type != current_piece => {
+            let mut swapped_board = board.clone();
+            swapped_board.hold_piece = Some(current_piece);
+            if let Some(_) = SpawnRule::Row19Or20.spawn(hold_piece_type, &swapped_board) {
+                spawn_candidates.push((hold_piece_type, swapped_board, true));
+            }
+        },
+        None => {
+            if let Some(first_next_str) = input.next.first() {
+                let new_current = parse_piece(first_next_str);
+                let mut swapped_board = board.clone();
+                swapped_board.hold_piece = Some(current_piece);
+                if SpawnRule::Row19Or20.spawn(new_current, &swapped_board).is_some() {
+                    spawn_candidates.push((new_current, swapped_board, true));
+                }
+            }
+        },        
+        _ => {},
+    }
 
     let config = Standard::default();
-
     let mut scored_candidates = Vec::new();
     let mut all_outputs = Vec::new();
 
-    for p in &placements {
-        let mut new_board = board.clone();
-        let lock_result = new_board.lock_piece(p.location);
-        print_board(&new_board);
-        println!(
-            "x: {}, y: {}, rotation: {}, tspin: {}, lines cleared: {}, cleared rows: {:?}\n",
-            p.location.x,
-            p.location.y,
-            p.location.kind.1 as u8,
-            format!("{:?}", p.location.tspin),
-            lock_result.cleared_lines.len(),
-            lock_result.cleared_lines
-        );
+    for (spawn_piece_type, board_variant, used_hold) in spawn_candidates {
+        let spawn_piece = SpawnRule::Row19Or20
+            .spawn(spawn_piece_type, &board_variant)
+            .expect("Failed to spawn piece");
 
-        let output = Output {
-            x: p.location.x,
-            y: p.location.y,
-            rotation: p.location.kind.1 as u8,
-            inputs: p.inputs.movements.iter().map(|m| format!("{:?}", m)).collect(),
-            tspin: format!("{:?}", p.location.tspin),
-            lines_cleared: lock_result.cleared_lines.len(),
-            cleared_rows: lock_result.cleared_lines.to_vec(),
-        };
+        let placements = find_moves(&board_variant, spawn_piece, MovementMode::ZeroG);
 
-        scored_candidates.push(((new_board, lock_result.clone(), 0, piece), output.clone()));
-        all_outputs.push(output);
+        for p in &placements {
+            let mut new_board = board_variant.clone();
+            let lock_result = new_board.lock_piece(p.location);
+
+            print_board(&new_board);
+            println!(
+                "x: {}, y: {}, rotation: {}, tspin: {}, lines cleared: {}, cleared rows: {:?}\n",
+                p.location.x,
+                p.location.y,
+                p.location.kind.1 as u8,
+                format!("{:?}", p.location.tspin),
+                lock_result.cleared_lines.len(),
+                lock_result.cleared_lines
+            );
+
+            let output = Output {
+                x: p.location.x,
+                y: p.location.y,
+                rotation: p.location.kind.1 as u8,
+                inputs: p.inputs.movements.iter().map(|m| format!("{:?}", m)).collect(),
+                tspin: format!("{:?}", p.location.tspin),
+                lines_cleared: lock_result.cleared_lines.len(),
+                cleared_rows: lock_result.cleared_lines.to_vec(),
+                used_hold,
+            };
+
+            scored_candidates.push(((new_board, lock_result.clone(), 0, spawn_piece_type), output.clone()));
+            all_outputs.push(output);
+        }
     }
 
     println!("{}", serde_json::to_string_pretty(&all_outputs).unwrap());
 
-    let (best_board, best_output) = scored_candidates
+    let (best_board, mut best_output) = scored_candidates
         .into_iter()
         .map(|((board, lock, mt, piece), output)| {
             let (transient, reward) = config.evaluate_board(&board, &lock, mt, piece);
@@ -123,18 +149,23 @@ fn main() {
         .max_by_key(|(sb, _)| sb.score)
         .expect("No valid boards generated");
 
+    if best_output.used_hold {
+        best_output.inputs.insert(0, "Hold".to_string());
+    }
+
     println!("\nBEST MOVE:");
     print_board(&best_board.board);
     println!(
-        "score: {}, lines cleared: {}, placement kind: {:?} (b2b: {}, combo: {:?})",
+        "score: {}, lines cleared: {}, placement kind: {:?} (b2b: {}, combo: {:?}, used hold: {})",
         best_board.score,
         best_board.lock.cleared_lines.len(),
         best_board.lock.placement_kind,
         best_board.lock.b2b,
-        best_board.lock.combo
+        best_board.lock.combo,
+        best_output.used_hold
     );
     println!("inputs for best move: {:?}", best_output.inputs);
-    
+
     std::fs::write(
         "selected_actions.json",
         serde_json::to_string_pretty(&best_output.inputs).unwrap(),
