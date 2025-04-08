@@ -356,21 +356,115 @@ A human player adhering to a Korean-stacking strategy would never make the move 
 
 ### Preface:
 
+Just like with [Sprint mode,](#alpha-release-sprint-mode) the majority of the embedded diagrams featured in this section were obtained from [Four-tris.](https://github.com/fiorescarlatto/four-tris)
+
+The Rust portion of this project, which can be found in the `tetris_thinker/` folder, was heavily inspired by the [Cold Clear Tetris bot,](https://github.com/MinusKelvin/cold-clear) written by GitHub user [MinusKelvin.](https://minuskelvin.net/) In particular, his decision to utilize a more expansive set of heuristics, as well as to write his project in Rust for more efficient computations, was what spurred my decision to offload some of the work to Rust for this project as well.
+
 ### Strategy:
+
+The goal of Blitz mode is to score as many points as possible within three minutes. The player is awarded a very small number of points for placing a piece, as well as a larger amount for clearing lines. However, the points awarded for a line clear differ based on its specific type and context. It follows, then, that if certain types of line clears are more valuable than others for the same 'cost' or action economy, a player wishing to maximize their score will seek to prioritize certain, high-value types of line clears. This is also what our AI will seek to do. Guideline Tetris games – see the [Miscellaneous Resources](#miscellaneous-resources) section – have a consistent scoring system for line clears, which this in-engine version of Tetris adheres to.
 
 #### Basic Line Clears:
 
+The maximum number of lines a player can clear with a single piece is four, by using the I-piece (long piece). It is also possible to clear one, two, or three lines, depending on the current board state and piece type. The scores attributed each line clear are:
+<br>
+- Single: 100 points.
+- Double: 300 points.
+- Triple: 500 points.
+- Quadruple (aka Tetris): 800 points.
+
+Notice that the score doesn't scale linearly with the number of lines cleared. A single clear awards 100 points, but a double awards 300. That means that clearing two lines instead of one is 50% more valuable. Similarly, because a triple is worth 500 points, clearing three lines instead of one is 66.7% more valuable, and at 800 points, a quadruple – also called a 'Tetris' – sees a 100% increase in value. **This means that, in most cases, it's better to wait until you can clear four lines all at once with a Tetris rather than clearing four lines in smaller chunks,** even if you're ultimately clearing the same total number of lines.
+  
+
 #### T-Spins:
+
+Here's where things get complicated— both for humans *and* our AI. There's a special type of line clear – or technique – called a T-Spin, which awards the player significantly more points per line cleared than normal. A T-Spin is performed by soft-dropping a T-piece, and then rotating it into a T-shaped hole in the grid.
+
+<br>
+<div align="center">
+  
+<table>
+  <tr>
+    <td align="center">
+      <img src="readme_embeds/Hard_vs_Soft_Drop_Demo.gif" width="250px"><br>
+      <em>Recall the different drop types.</em>
+    </td>
+    <td style="width: 100px;"></td> <!-- spacer cell -->
+    <td align="center">
+      <img src="readme_embeds/T-Spin_Double_Demo.gif" width="250px"><br>
+      <em>A T-Spin Double, which clears two lines.</em>
+    </td>
+  </tr>
+</table>
+
+</div>
+<br>
+
+There are a few rules that must be followed in order for the game to recognize a T-spin:
+<br>
+- The active piece must be a T-piece.
+- The last movement before a piece locks must be a rotation (necessitates soft drops).
+- Three of the four 'corners' surrounding a T-piece must be occupied.
+
+Below is a diagram outlining what I mean when I say 'corner':
+
+<br>
+<div align="center">
+  <img src="readme_embeds/T-Piece_Anatomy_Annotated.png" width="500px">
+  <br>
+  <em>The cyan squares represent the 'front' corners, while the yellow represent the 'back' corners. The front and back of the T-piece changes as it rotates, always remaining relative to the positions indicated above.</em>
+</div>
+<br>
+
+There are two types of T-spins. Mini T-spins, where both back corners and at least one front corner is occupied, and regular or 'full' T-spins, where both front corners and at least one back corner is occupied. There are single- and double- line clear variants for both types, as well as a triple variant exclusive to regular T-spins. The score awarded to each are as follows:
+<br>
+- Mini T-Spin Single: 200 points.
+- Mini T-Spin Double: 400 points.
+- T-Spin Single: 800 points.
+- T-Spin Double: 1200 points.
+- T-Spin Triple: 1600 points.
+
+As can be seen, at 800 points, a T-spin single is worth as much as a Tetris, with doubles and triples quickly exceeding that value. More importantly, T-spins clear fewer lines than a Tetris, which is actually a good thing in Blitz mode. Because you need to stack pieces up in order to clear a row, the more lines you clear, the more pieces you'll have to place. **This means that T-spins are even more disproportionately valuable compared to Tetrises than it may already seem, and so they form the cornerstone of high-level Blitz play.**
 
 #### Clear Bonuses:
 
+When a line is cleared, there are three additional bonuses the player has the potential to score.
+
 ##### Combo Bonus:
+
+If multiple lines are cleared in sequence – a clear combo – then the player is awarded additional points based on the length of the combo equal to 50 points times the length of the combo. Two successive clears is a combo of length one, three for lenght two, and so on. While appreciated, the combo bonus is rather marginal, and the opportunity cost of maximizing it is too high in Blitz mode, so it often takes a back seat to the other two.
 
 ##### Back-to-Back Bonus:
 
+The back-to-back bonus is awarded to the player if they perform two 'difficult' line clears in a row, with no 'easy' line clears in-between. Difficult line clears include Tetrises and all forms of T-spins. This bonus is different from the combo bonus because it does not require that both clears occur one after the other. You can perform a difficult line clear, then stack a half-dozen pieces before performing another difficult clear, and still receive the bonus so long as you didn't clear any other lines in those half-dozen pieces. 
+
+The back-to-back bonus awards the player a 50% increase in the points awarded by the difficult line clear. **If you can preserve the back-to-back bonus for the entire game, it's essentially a 1.5x score multiplier for little-to-no cost, and so it's a very important part of Blitz play.**
+
 ##### Perfect Clear Bonus:
 
+Perfect clears are as simple to understand as they are powerful. If, after clearing any number of lines, the grid ends up completely empty, then the player is awarded a large amount of bonus points depending on the number of lines cleared, featured below:
+<br>
+- Single-Line Perfect Clear: 800 points.
+- Double-Line Perfect Clear: 1200 points.
+- Triple-Line Perfect Clear: 1200 points.
+- Tetris (Quadruple-Line) Perfect Clear: 2000 points.
+- Back-to-Back Tetris Perfect Clear: 3200 points.
+
+<br>
+<div align="center">
+  <img src="readme_embeds/Perfect_Clear_Demo.gif" width="500px">
+  <br>
+  <em>An example of a single-line perfect clear. When the third piece (the I-piece) is placed, a single line is cleared and the resulting board is completely empty.</em>
+</div>
+<br>
+
+Perfect clears differ from T-spins in that, while the number of points awarded for a T-spin is in place of a standard line clear, the points awarded for a perfect clear are *in addition* to those awarded for a standard clear. This means that a single-line perfect clear, without any other bonuses, will award the player 900 points (100 for the single-line clear and 800 for the perfect clear bonus).
+
+Strictly speaking, perfect clears have higher per-line scoring potential than T-spins do, both on average and in terms of their maximums. In an ideal world, the 'perfect' game of Blitz Tetris would consist of the player looping perfect clears until their time runs out. However, they are both harder to set up than T-spins as well as somewhat reliant on luck, even in controlled conditions. **A theoretically perfect player could get very close to a 100% perfect clear rate, but would never be able to guarantee it.** If perfect clears could be achieved with certainty, then T-spins would be made obsolete, but as it stands, both T-spins and perfect clears form the core of Blitz mode strategy.
+
 #### Pattern Stacking:
+
+
 
 ### Practical Differences from Sprint Mode:
 
