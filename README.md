@@ -442,7 +442,29 @@ The back-to-back bonus awards the player a 50% increase in the points awarded by
 
 ##### Perfect Clear Bonus:
 
+Perfect clears are as simple to understand as they are powerful. If, after clearing any number of lines, the grid ends up completely empty, then the player is awarded a large amount of bonus points depending on the number of lines cleared, featured below:
+<br>
+- Single-Line Perfect Clear: 800 points.
+- Double-Line Perfect Clear: 1200 points.
+- Triple-Line Perfect Clear: 1200 points.
+- Tetris (Quadruple-Line) Perfect Clear: 2000 points.
+- Back-to-Back Tetris Perfect Clear: 3200 points.
+
+<br>
+<div align="center">
+  <img src="readme_embeds/Perfect_Clear_Demo.gif" width="500px">
+  <br>
+  <em>An example of a single-line perfect clear. When the third piece (the I-piece) is placed, a single line is cleared and the resulting board is completely empty.</em>
+</div>
+<br>
+
+Perfect clears differ from T-spins in that, while the number of points awarded for a T-spin is in place of a standard line clear, the points awarded for a perfect clear are *in addition* to those awarded for a standard clear. This means that a single-line perfect clear, without any other bonuses, will award the player 900 points (100 for the single-line clear and 800 for the perfect clear bonus).
+
+Strictly speaking, perfect clears have higher per-line scoring potential than T-spins do, both on average and in terms of their maximums. In an ideal world, the 'perfect' game of Blitz Tetris would consist of the player looping perfect clears until their time runs out. However, they are both harder to set up than T-spins as well as somewhat reliant on luck, even in controlled conditions. **A theoretically perfect player could get very close to a 100% perfect clear rate, but would never be able to guarantee it.** If perfect clears could be achieved with certainty, then T-spins would be made obsolete, but as it stands, both T-spins and perfect clears form the core of Blitz mode strategy.
+
 #### Pattern Stacking:
+
+
 
 ### Practical Differences from Sprint Mode:
 
