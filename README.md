@@ -30,7 +30,7 @@
       - [Decision-Making](#decision-making) 
     - [AI Training](#ai-training-1)
     - [Result](#result-1)
-    - [Drawbacks](#drawbacks-1)
+    - [Preliminary Analysis](#preliminary-analysis-1)
 - [Beta Release (Blitz Mode)](#beta-release-blitz-mode)
   - [Preface](#preface-2)
   - [Strategy](#strategy-2)
@@ -49,7 +49,7 @@
   - [AI Reward and General Methodology](#ai-reward-and-general-methodology-2)
   - [AI Training](#ai-training-2)
   - [Result](#result-2)
-  - [Drawbacks](#drawbacks-2)
+  - [Preliminary Analysis](#preliminary-analysis-2)
 
 ## Resource Briefing:
 ### Proposal Paper Abstract:
@@ -525,9 +525,56 @@ The training reward is simple— total score. In Sprint mode, it was necessary t
 
 ### AI Training:
 
+The training is still evolution-based, like for the [Sprint model.](#ai-training-1) Similarly, the same type of linear model is being used. The one nuance I want to add here is that, in order to save time, my initial training limits the AI to placing 70 pieces per game, instead of the 360 I initially suggested. The general thought process behind this change is that, while reducing the number of pieces it can place might encourage the AI to find less consistent strategies, it should still be optimizing towards maximizing its score. In return, it's able to complete a Blitz game over five times faster than it would otherwise be able to, meaning that it can train on five times as many games in the same span of time. Due to the increased computational demand of Blitz mode, this is a compromise that I felt was necessary to make.
+
 ### Result:
 
-### Drawbacks:
+Due to the much larger number of heuristics present in the Blitz model, it doesn't make sense for me to list out the exact numerical value for each weight. Instead, I will simplify by broadly categorizing the weights into ones which are rewarded and ones which are penalized.
+
+The following weights are rewarded:
+<br>
+- Creating a well in the board.
+- Making the well deep.
+- Clearing a line such that it gives the back-to-back state.
+- Clearing a line and recieving the back-to-back bonus.
+- Clearing four lines at once (a Tetris).
+- Clearing any form of 'full' T-spin.
+- Achieving a perfect clear.
+- Achieving a line-clear combo.
+
+The following weights are penalized:
+<br>
+- The bumpiness of the board.
+- The height of the board.
+- Holes in the board.
+- Placing many pieces above one or more holes in the board.
+- Clearing more than one line at a time such that the lines cleared are not vertically contiguous (i.e. two lines being cleared, with a third row in-between which isn't being cleared).
+- Placing any T-piece such that it doesn't result in a T-spin.
+- Clearing less than four lines at once without a T-spin.
+- Clearing any form of mini T-spin.
+
+Also included was a set of ten weights, one for each column, to allow the AI to select with weights where it wants to place the well. Unfortunately, due to the nature of a depth-1 lookahead, these weights ended up being somewhat moot (more on this in the next section).
+
+Below is a succesfully-completed game of depth-1 Blitz mode using weights settled upon by the AI. The game is played with 360 pieces, for a simulated rate of two pieces per second. The embedded gif, originally 89 seconds long, was sped up by 50% in order to constrain its length to a 60-second time limit.
+
+<br>
+<div align="center">
+  <img src="readme_embeds/Successful_Depth-1_Blitz.gif" width="600px">
+</div>
+<br>
+
+### Preliminary Analysis:
+
+In the game above, the AI managed to score just under 61,000 points in 360 pieces. Without any sort of frame of reference, however, that number is rather meaningless. In order to draw any sort of comparison, we need to know how a human player performs under the same restrictions. To that end, I played two games of Blitz in the same engine, halting at exactly 360 pieces placed. For one of the games, I allowed myself to look at the next queue (depth-6, in the AI's terms). For the other, I obstructed that portion of the screen and only allowed myself knowledge of the current piece and held piece. For context, I am very far from what I'd call an accomplished modern Tetris player. That said, I'd also rank myself rather high among casual players as I'm adequately proficient at finding and setting up T-spin doubles, a technique which is foreign to the average casual player.
+
+After placing 360 pieces at my own 'depth-6', I scored 69,737 points. At depth-1, that number reduced to 46,635. At depth-6, I utilized 6–3 stacking and scored primarily through back-to-back T-spins and Tetrises. At depth-1, I was unable to consistently find or set up any form of T-spin, and instead relegated myself to a simple 9–0 stack, scoring points exclusively with back-to-back Tetrises. To put things into more concrete numbers, based on our scores, I scored 14.3% better than the AI when I had a lookahead advantage of depth-5 and 23.5% *worse* when I was constrained to depth-1 like it was. This means that, on a level playing field, the AI is capable of outplaying me— an impressive and valuable result.
+
+The Blitz model of the AI is less free-spirited than the Sprint model is, and thus it's a little easier to see patterns emerge in its play. Most salient among them are pattern stacking. When watching it train, I witnessed the model stack in every variation: 9–0, 8–1 (which is frankly awful), 7–2, 6–3, and 5–4, as well as the mirror for each. At one point, even watched it invent a very primitive form of LST stacking, a strategy featured in an earlier section. The only stacking pattern that it frequenly falls back upon, however, is a 9–0 stack. This is interesting, if perhaps not unexpected.
+
+We established earlier that 9–0 stacking is sub-optimal for Blitz mode because it disallows the player from forming T-spin setups over the well. I don't believe that the AI is contradicting this line of thought. Rather, Because it's being rewarded for keeping a flat stack with no holes, it gravitates towards the stacking strategy that's easiest to keep flat and neat— 9–0. This, I believe, is primarily a symptom of not having any form of lookahead. I mentioned that I had weights for every column, in order to encourage the AI to explore where it might want to place the well? That idea was predicated on the assumption that it would be able to see at least a handful of moves into the future. In its current state – greedy and only looking at the current move – the formation of a well is too far down the line for it to be a relevant consideration, and so it instead prioritizes its other weights.
+
+Part of my original goal for this project was to collect play data from the AI and run statistical analysis on it to identify patterns in its decision making. As of now, I have not yet done so, not because of a lack of time or means, but because I don't think such analysis will be productive in the AI's current state. While it's undeniable that an element of strategy exists at depth-1, the majority of interesting strategy emerges when combinations of pieces are considered, which isn't currently happening. Some time in the future, I hope to properly implement lookahead, and once I do so, I plan to collect and analyze the model's play data in earnest.
+
 
 
 
