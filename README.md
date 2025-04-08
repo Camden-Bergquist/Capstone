@@ -50,6 +50,12 @@
   - [AI Training](#ai-training-2)
   - [Result](#result-2)
   - [Preliminary Analysis](#preliminary-analysis-2)
+- [Reflection](#reflection)
+  - [Initial Goals](#initial-goals)
+  - [Time Management](#time-management)
+  - [Successful Outcomes](#successful-outcomes)
+  - [Unuccessful Outcomes](#unsuccessful-outcomes)
+  - [Future Prospects](#future-prospects)
 
 ## Resource Briefing:
 ### Proposal Paper Abstract:
@@ -575,6 +581,40 @@ We established earlier that 9–0 stacking is sub-optimal for Blitz mode because
 
 Part of my original goal for this project was to collect play data from the AI and run statistical analysis on it to identify patterns in its decision making. As of now, I have not yet done so, not because of a lack of time or means, but because I don't think such analysis will be productive in the AI's current state. While it's undeniable that an element of strategy exists at depth-1, the majority of interesting strategy emerges when combinations of pieces are considered, which isn't currently happening. Some time in the future, I hope to properly implement lookahead, and once I do so, I plan to collect and analyze the model's play data in earnest.
 
+## Reflection:
+
+### Initial Goals:
+
+At the project outset, my goals were as follows:
+<br>
+- Create a Python-based version of Tetris for an AI agent to play.
+- Train the AI to play Sprint mode.
+- Train the AI to play Blitz mode.
+- Collect AI play data and perform statistical analysis on its strategy and general play patterns.
+
+### Time Management:
+
+During the project-planning phase in the adjunct course for this capstone, we were told to expect to be working on our capstone project for eight hours a day, for an approximate total of 144 hours. On average, I maintained faithful to this expectation. Some days I may have only worked six hours, but made up for it by working ten hours a different day, and so on.
+
+I scoped my project under the expectation that class time would be used exclusively for working on our projects, with nothing else asked of us. Unfortunately, this didn't line up one to one with our actual block-7 schedule, seeing as we were asked to dedicate extra time to presenting our work each week, which amounted to multiple days' worth of of time that I expected to have and did not receive. Thankfully, I was able to work slightly ahead of pace and managed to complete most of what I set out to accomplish, but I can't help thinking that I could have gotten nearly everything I wanted to done if I'd had those few extra days which were initially promised to us.
+
+### Successful Outcomes:
+
+Of the four initial goals I outlined, I minimally accomplished the first three: building a version of Tetris, training on Sprint mode, and training on Blitz mode. I use the word 'minimally' because, while I technically did succeed in what I set out to do, I'm unsatisfied with the lack of proper lookahead available to both models— particularly so when it comes to Blitz mode, where lookahead is more important. To be clear, I'm still content with what I did manage to finish, but there's a less-than-small part of me that's unhappy with a model that can't look past depth-1.
+
+As for the first goal – the in-engine version of Tetris – I'm actually very happy with it. The first goal of any self-respecting programmer when faced with a problem is to see if someone else has already solved the problem for you. In that vein, the first thing I did was look around to see if anyone had built a version of the game in Python. Several had, but not a single one of them that I found had built a version of the game faithful to the way modern Tetris actually behaves, and so I took it onto myself to build one from the ground up. It's still extremely clumsily done, mind you, but it functions as I need it to, and it's my hope that if someone else is interested in a similar project down the line, they might be able to use this as a small starting point rather than having to waste time to build their own version of the game like I did. If there's any portion of the project I'm proud of, it's the guideline-adherent Tetris engine that I built.
+
+### Unsuccessful Outcomes:
+
+Only one of the four goals remains unfulfilled— statistical analysis. I briefly touched upon this in [the Blitz model's preliminary analysis section,](preliminary-analysis-2) but the reason for its lack of presence here is neither a consequence of my running out of time, nor of an inability to collect and analyze the data. Rather, I deemed that, at depth-1, there's little reason for me to run any sort of proper statistics on the AI's strategy because its lack of consideration of future pieces is so different from human play as to be incommensurable with the sort of human-based strategy I wanted to compare its play to. 
+
+Even so, I still consider this a failure on my part. The reason I judged statistical analysis to be fruitless is a lack of proper lookahead— a problem I failed to solve. Though the reason I didn't accomplish the goal was by deliberate choice instead of a lack of means, not having a good enough reason to perform the analysis is in itself a fundamental failing of the myself and the project, and not some ethereal roadblock that was impossible to solve.
+
+### Future Prospects:
+
+In the next couple of days, I plan to reorganize the repository— grouping currently loose files into relevant new folders, deleting irrelevant or unused files, and so on. I also plan to construct a new readme file for the home page. This here writeup will continue to exist in the repository, but it was written as semi-academic report for this block-7 capstone class, and not as an actually structured overview of the code present in the project. As the repository is something I'd like to feature on my GitHub account for resume purposes, it makes more sense to display a more brief and controlled landing page, with a link to this file in case a prospective viewer is interested in a more in-depth look at my thought process when working on this project.
+
+As this was a project I personally scoped and outlined – the overlap between machine learning and game theory is endlessly fascinating to me – it's something I would inherently like to revisit at some point down the line. I'd really like to find a way to get a multi-depth lookahead working. Even just a depth of 3 would dramatically increase the 'skill' of the model, and *that* would be a model worth performing some statistics on. That said, knowing my tendencies to pick up and drop pet projects at the drop of a hat, it's about as likely that I have a fully-functional depth-3 model as it is that I never touch this project again. Like most things in life, I suppose we'll have to wait and see.
 
 
 
