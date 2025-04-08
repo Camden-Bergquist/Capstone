@@ -35,51 +35,61 @@ def unpack_game_actions(filename):
     with open(filename, "r") as f:
         return json.load(f)
 
-# Initialize Game
-game = TetrisGame(render=True, game_mode="Blitz")
-game.reset_game_state()
 
-for i in range(361):
+def run_playtest():
+    # Initialize Game
+    game = TetrisGame(render=True, game_mode="Blitz")
+    game.reset_game_state()
 
-    if game.game_over:
-        break
 
-    # Grab game state and pass it to Rust
-    game_state = game.game_state_to_dict()
-    write_compact_field_json("tetris_thinker/input.json", game_state)
-    subprocess.run(["cargo", "run"], cwd="tetris_thinker") # Waits for program to finish before continuing code
+    for i in range(361):
 
-    # Extract moves and run them:
-    action_sequence = unpack_game_actions("tetris_thinker/selected_actions.json")
-    print(f"Action Sequence: {action_sequence}")
-    
-    for action in action_sequence:
+        if i == 0:
+            game.game_step(0)
+            time.sleep(2)
 
-        match action:
-            case "Hold":
-                game.game_step(7)
-            case "Left":
-                game.game_step(1)
-            case "Right":
-                game.game_step(2)
-            case "Ccw":
-                game.game_step(3)
-            case "Cw":
-                game.game_step(4)
-            case "SonicDrop":
-                game.game_step(8)
-    
-    # time.sleep(0.05)
-    
-    game.game_step(6) # Always Hard Drop at the end of a sequence.
+        if game.game_over:
+            game.reset_game_state()
+            break
 
-    # time.sleep(1)
+        # Grab game state and pass it to Rust
+        game_state = game.game_state_to_dict()
+        write_compact_field_json("tetris_thinker/input.json", game_state)
+        subprocess.run(["cargo", "run"], cwd="tetris_thinker") # Waits for program to finish before continuing code
 
-print("360 Moves Played!")
+        # Extract moves and run them:
+        action_sequence = unpack_game_actions("tetris_thinker/selected_actions.json")
+        print(f"Action Sequence: {action_sequence}")
+        
+        for action in action_sequence:
 
-# Empty the .json files at the end of the script.
-with open("tetris_thinker/selected_actions.json", 'w') as file:
-    pass
-with open("tetris_thinker/input.json", 'w') as file:
-    pass  # Do nothing, just open and close the file to clear it
+            match action:
+                case "Hold":
+                    game.game_step(7)
+                case "Left":
+                    game.game_step(1)
+                case "Right":
+                    game.game_step(2)
+                case "Ccw":
+                    game.game_step(3)
+                case "Cw":
+                    game.game_step(4)
+                case "SonicDrop":
+                    game.game_step(8)
+        
+        time.sleep(0)
+        
+        game.game_step(6) # Always Hard Drop at the end of a sequence.
 
+        # time.sleep(1)
+
+    print("360 Moves Played!")
+
+    # Empty the .json files at the end of the script.
+    with open("tetris_thinker/selected_actions.json", 'w') as file:
+        pass
+    with open("tetris_thinker/input.json", 'w') as file:
+        pass  # Do nothing, just open and close the file to clear it
+
+for i in range(10):
+    run_playtest()

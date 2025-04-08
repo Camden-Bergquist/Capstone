@@ -2107,7 +2107,7 @@ class TetrisGame:
             self.lines_cleared = 0
         
         if self.game_mode == "Blitz":
-            self.total_pieces_placed = 70
+            self.total_pieces_placed = 360
         else:
             self.total_pieces_placed = 0
 

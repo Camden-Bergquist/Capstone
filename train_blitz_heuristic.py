@@ -129,7 +129,7 @@ class HeuristicTetrisProblem(Problem):
 use_established_weights = True
 established_weights_path = "default_cold_weights.json"
 render_environment = True
-lower_bound, upper_bound, initial_stdev = -100, 100, 15
+lower_bound, upper_bound, initial_stdev = 0, 0, 0
 population_size, num_generations = 10, 10
 
 # Set up and run the search

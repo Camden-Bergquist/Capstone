@@ -9,7 +9,7 @@ class BlitzHeuristicEnv(gym.Env):
         super().__init__()
 
         self.game = TetrisGame(render = render_env, game_mode = "Blitz")
-        self.game.lines_cleared = 70 # 10 full bags. 360 would simulate two pieces per second.
+        self.game.lines_cleared = 360 # 70 for 10 full bags. 360 would simulate two pieces per second.
         self.reset_tracker = 0
 
         self.action_space = None  # Rust script selecting move.
@@ -29,8 +29,8 @@ class BlitzHeuristicEnv(gym.Env):
         self.steps += 1
 
         # Small sleep on startup
-        # if self.steps == 1:
-        #    time.sleep(2.0)
+        if self.steps == 1:
+            time.sleep(2.0)
 
         for action in action_sequence:
 
@@ -58,7 +58,7 @@ class BlitzHeuristicEnv(gym.Env):
         info = {} # Placeholder in case it's wanted down the line.
 
         # Time between actions (comment out when training)
-        # time.sleep(0.1)
+        time.sleep(0.1)
 
         return reward, done, info
 
