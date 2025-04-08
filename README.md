@@ -42,11 +42,11 @@
       - [Perfect Clear Bonus](#perfect-clear-bonus)
     - [Pattern Stacking](#pattern-stacking-2)
   - [Practical Differences from Sprint Mode](#practical-differences-from-sprint-mode)
+    - [New Possiible Placements](#new-possible-placements)
+    - [New Heuristics](#new-heuristics)
+    - [Piece Lookahead](#piece-lookahead)
   - [Addressing the Problem of Computational Complexity](#addressing-the-problem-of-computational-complexity)
   - [AI Reward and General Methodology](#ai-reward-and-general-methodology-2)
-    - [Reward Methodology](#reward-methodology-2)
-    - [Reward Structure](#reward-structure-2)
-    - [Decision-Making](#decision-making-2)
   - [AI Training](#ai-training-2)
   - [Result](#result-2)
   - [Drawbacks](#drawbacks-2)
@@ -464,19 +464,64 @@ Strictly speaking, perfect clears have higher per-line scoring potential than T-
 
 #### Pattern Stacking:
 
+There are two major differences in stacking patterns between Sprint and Blitz modes. The first is the introduction of a new type of stacking pattern, commonly called 'mechanical T-spin setups'. These are a sort of stacking pattern that can be repeated ad infinitum, designed to allow the player as many consistent T-spin opportunities as possible.
 
+<br>
+<div align="center">
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="readme_embeds/LST_Stacking_Example.PNG" width="250px"><br>
+      <em>LST stacking, a popular form of mechanical T-spin setup. <br>
+        The example shown above technically wouldn't work as- <br>
+        intended, and is dramatized for the demonstration purposes.</em>
+    </td>
+  </tr>
+</table>
+
+</div>
+<br>
+
+While it tends to be more common for players to prefer a freestyle approach to setting up T-spins, it's by no means rare to see something like an LST setup used. Whether the AI is capable of stumbling on such a setup is a particularly interesting question, which is why I felt it relevant to introduce.
+
+The second difference is that of the well, or the column intentionally left empty for the I-piece. If you'll recall, in [the Sprint-mode version of this section,](#pattern-stacking-1) I introduced two common stacking patterns— 9–0 and 6–3. While 6–3 is still usable – and indeed, very popular – for Blitz mode, 9–0 is very difficult to justify. This is because T-spin setups are typically built abve the well, and doing so requires a space on either side of the well, meaning that placing the well in the furthest-left or -right column is actively detrimental. **As a result, all Blitz-mode play features stacking with a 'center well', which is a well with two stacks, one on either side.** Most commonly used are 7–2 (featured in LST stacking above), 6–3, and 5–4, as well as their mirrors.
 
 ### Practical Differences from Sprint Mode:
 
+Okay, so, I've now spent a large amount of time waffling-on about the strategy of Blitz Tetris, and not much about anything AI-related. The reason for that is simple: It's incredibly important to understand the practical strategic differences between Sprint and Blitz modes because it informs almost every decision I made pertaining to the structure and training of the AI, and therefore the remainder of the project as a whole. In short, this section is here to tell you why you had to bother reading the previous one in the first place.
+
+#### New Possible Placements:
+
+In Sprint mode, we established that it's sub-optimal to soft drop a piece in a time-based mode because soft dropping is slower than hard dropping and offers no additional reward. Because of this, the AI only considered hard dropping when choosing between potential placements. While soft dropping is still just as slow in Blitz mode, the existence of T-spins – which *require* a soft-drop – means that continuing to deny the AI the ability to soft drop a piece like in Sprint mode will actively hamper its performance where it wouldn't have before.
+
+The consequence of this change is heightened computational complexity. Worse, whereas the number of possible hard-drop actions remains relatively consistent regardless of the board state, potential soft-drop actions will constantly fluctuate based on context. This means that potential actions need to be sought procedurally rather than simply pre-defined as they were for hard drops, which is significantly more computationally taxing than just defining a set number of actions.
+
+#### New Heuristics:
+
+Because there are so many different clear types, all with differing numbers of points, Blitz mode strategy is much, *much* more complex than the simple Sprint-mode strategy the AI was faced with previously. When playing Sprint mode, we were able to get away with providing four heuristics for it to look at: aggregate height, holes, bumpiness, and lines cleared. All four of those heuristics are still being used for Blitz mode, along with an additional *twenty-eight,* for a total of thirty-two. While I won't list them all out here, most of the new heuristics are for the differing clear types – one for literally every possible clear, since they all award different point totals – as well as T-spin recognition and reward, bonus point conditions, and heuristics for well height in each of the ten columns on the board in order to allow the AI to choose where it would like to place the well.
+
+This increases our computational load, but not terribly. More problematic is the fact that it dramatically increases the number of training loops necessary in order to properly train a linear model. Because there are so many more weights, there are exponentially more potential combinations of different values for those weights. This means that it will take one or more orders of magnitude longer for our model to converge – the state it reaches when it feels 'confident' about its predictions, and doesn't see more room for improvement – which is unfortunately directly reflected in the amount of time that has to be dedicated to training the model.
+
+#### Piece Lookahead:
+
+Available to the player when playing the game is the next queue, a list of the next five upcoming pieces they'll be asked to place once they've found a spot for their current one. We were able to get away with not implementing lookahead for the Sprint model because it's possible to succeed in Sprint mode with a relatively small amount of planning. I cannot emphasize this enough when I say that in Blitz mode, the opposite is true. T-spins, preserving back-to-back, waiting to clear four lines at once with a Tetris instead of three lines right away, and finding potential perfect-clear avenues are all examples of actions which *immensely* benefit from being able to consider future actions rather than just the current one. In effect, a Blitz AI trained on depth-1 lookahead – looking only at actions based on the current piece –  has a cap on its potential that can't be surpassed without allowing it to glance at future possibilities.
+
+**Practically speaking, this is the most significant hurdle by far.** Let's imagine, for a moment, that we're only looking at hard-drop placements, and not soft drops (we'd never do this for Blitz mode, but it's a simplification for the sake of example). On average, there are about 23 different hard drop locations for a piece, between horizontal movement and rotations. Add in the hold piece and it gets doubled to 46. At depth-1, only looking at the current and held piece, the AI has to decide between 46 different locations. Not too bad, really. The problem arises when we move to the next depth. At depth 2, looking at the current *and* next piece, the AI has to consider 46<sup>2</sup> possible combinations of those two pieces, or 2116. At depth-3, 97,336, and so on and so forth. This gets computationally expensive very, very quickly. At depth-6, utilizing the entire next queue, the number of combinations to evaluate approaches nine-and-a-half billion.
+
+While there are ways to minimize the amount of time this type of calculation takes, it's impossible to avoid the exponential increase entirely, as the problem is inherent to that of the lookahead proces itself. **This is, by far and away, the largest hurdle to clear when designing an AI for Blitz mode.**
+
 ### Addressing the Problem of Computational Complexity:
+
+Python is notorious for being a slow and inefficient language, and so, in hopes to mitigate the problem I decided to offload the computationally-heavy portion of the calculations to Rust. While I believe there's still a world of improvement to be made in terms of the general efficiency of the Rust portion of this project – this was my first foray into the language – I nonetheless managed to write a script that passes information back and forth between Rust and Python, managing the move calculations and evaluations at a markedly increased rate. Unfortunately, I have as of yet failed to implement a satisfactory version of piece lookahead, and do not expect to have the time to do so before this capstone block is over.
 
 ### AI Reward and General Methodology:
 
-#### Reward Methodology:
+Because of the dramatically increased number of heuristics, it's unreasonable to lay them all out here, and so only the reward and methodology will be addressed.
 
-#### Reward Structure:
+In a similar vein to Sprint mode, because an AI can't accurately reflect the speed at which a human plays the game at, I decided to standardize its capabilities by ending the Blitz game after it places 360 pieces (or tops out, whichever happens first). 360 total pieces makes for a simulated rate of two pieces per second, and ensures that the model will never be rewarded for making quicker-but-worse decisions.
 
-#### Decision-Making:
+The training reward is simple— total score. In Sprint mode, it was necessary to implement a safeguard that prevented the AI from ever considering a lost game to be better than a won one. Such a safeguard was unnecessary to add for Blitz mode, as surviving longer inherently scales with total points earned, and is thus naturally rewarded. At no point in training did the AI find a method of maximizing its reward that *didn't* involve placing the maximum number of pieces alloted to it.
 
 ### AI Training:
 
